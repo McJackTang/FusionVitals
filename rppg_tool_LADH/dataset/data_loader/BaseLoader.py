@@ -50,9 +50,8 @@ class BaseLoader(Dataset):
             config_data(CfgNode): data settings(ref:config.py).
         """
         self.dataset_type = config_data.DATASET_TYPE
-        # print("self.dataset_type:",self.dataset_type) 
         self.inputs = list() # face
-        self.inputs_face_IR = list() # face_IR
+        self.inputs_face_IR = list() # finger
         self.labels_bvp = list()
         self.labels_spo2 = list()
         self.labels_rr = list()  # 新增RR标签列表
@@ -91,14 +90,11 @@ class BaseLoader(Dataset):
 
     def __len__(self):
         """Returns the length of the dataset."""
-        if self.dataset_type != "face_IR":
-            return len(self.inputs)
-        else:
-            return len(self.inputs_face_IR)
-            
+        return len(self.inputs)
 
     def __getitem__(self, index):
         """Returns a clip of video(3,T,W,H) and its corresponding signals(T)."""
+        print(f"Index: {index}, Length of inputs_face_IR: {len(self.inputs_face_IR)}, Length of inputs_face:{len(self.inputs)}")
         # 加载基本标签
         label_bvp = np.load(self.labels_bvp[index])
         label_spo2 = np.load(self.labels_spo2[index])
@@ -112,8 +108,6 @@ class BaseLoader(Dataset):
         if label_spo2.ndim == 1:
             label_spo2 = label_spo2.reshape(1, -1).mean(axis=1, keepdims=True)
 
-        # print(f"label_bvp shape: {label_bvp.shape}")
-        # print(f"label_spo2 shape: {label_spo2.shape}")
         # 根据数据集类型返回数据
         if self.dataset_type == "face":
             data = np.load(self.inputs[index])
@@ -126,11 +120,6 @@ class BaseLoader(Dataset):
             chunk_id = item_path_filename[split_idx + len('_input_'):].split('.')[0]
             # print(f"Loaded RR label shape: {label_rr.shape}, value: {label_rr}")
             # print(f"Loaded BVP label shape: {label_bvp.shape}, value: {label_bvp}")
-            # print(f"len(data): {len(data)}")
-            # print(f"len(label_bvp): {len(label_bvp)}")
-            # print(f"data shape: {data.shape}")
-            # print(f"label_bvp shape: {label_bvp.shape}")
-            # print(f"label_spo2 shape: {label_spo2.shape}")
             return data, label_bvp, label_spo2, label_rr, filename, chunk_id
 
         if self.dataset_type == "face_IR":
@@ -142,11 +131,6 @@ class BaseLoader(Dataset):
             split_idx = item_path_filename.rindex('_input_')
             filename = item_path_filename[:split_idx]
             chunk_id = item_path_filename[split_idx + len('_input_'):].split('.')[0]
-            # print(f"len(data): {len(data)}")
-            # print(f"len(label_bvp): {len(label_bvp)}")
-            # print(f"data shape: {data.shape}")
-            # print(f"label_bvp shape: {label_bvp.shape}")
-            # print(f"label_spo2 shape: {label_spo2.shape}")
             return data, label_bvp, label_spo2, label_rr, filename, chunk_id
 
         if self.dataset_type == "both":
@@ -333,8 +317,11 @@ class BaseLoader(Dataset):
         if backend == "HC":
             # Use OpenCV's Haar Cascade algorithm implementation for face detection
             # This should only utilize the CPU
+
+            # detector = cv2.CascadeClassifier(
+            # './dataset/haarcascade_frontalface_default.xml')
             detector = cv2.CascadeClassifier(
-            './dataset/haarcascade_frontalface_default.xml')
+            '/data01/jz/rppg_tool_HMS/dataset/haarcascade_frontalface_default.xml')
 
             # Computed face_zone(s) are in the form [x_coord, y_coord, width, height]
             # (x,y) corresponds to the top-left corner of the zone to define using
@@ -698,12 +685,29 @@ class BaseLoader(Dataset):
         return diffnormalized_data
 
     @staticmethod
+    # def diff_normalize_label(label):
+    #     """Calculate discrete difference in labels along the time-axis and normalize by its standard deviation."""
+    #     diff_label = np.diff(label, axis=0)
+    #     diffnormalized_label = diff_label / np.std(diff_label)
+    #     diffnormalized_label = np.append(diffnormalized_label, np.zeros(1), axis=0)
+    #     diffnormalized_label[np.isnan(diffnormalized_label)] = 0
+    #     return diffnormalized_label
+
     def diff_normalize_label(label):
-        """Calculate discrete difference in labels along the time-axis and normalize by its standard deviation."""
+        """Calculate discrete difference in labels along the time-axis and normalize by its standard deviation.
+        Set difference to 0 if its absolute value is greater than 60.
+        """
+        # 计算离散差分
         diff_label = np.diff(label, axis=0)
-        diffnormalized_label = diff_label / np.std(diff_label)
-        diffnormalized_label = np.append(diffnormalized_label, np.zeros(1), axis=0)
+        # 对差分结果进行处理：若绝对值大于60，则置为0
+        diff_label = np.where(np.abs(diff_label) > 60, 0, diff_label)        
+        # 对差分结果进行标准化
+        diffnormalized_label = diff_label / np.std(diff_label)        
+        # 在结果末尾添加零
+        diffnormalized_label = np.append(diffnormalized_label, np.zeros(1), axis=0)        
+        # 如果存在NaN，将其置为0
         diffnormalized_label[np.isnan(diffnormalized_label)] = 0
+        
         return diffnormalized_label
 
     @staticmethod
