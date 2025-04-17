@@ -29,7 +29,7 @@ train_generator = torch.Generator()
 train_generator.manual_seed(RANDOM_SEED)
 
 
-def seed_worker(worker_seed = RANDOM_SEED):
+def seed_worker(worker_seed):
     # worker_seed = torch.initial_seed() % 2 ** 32
     np.random.seed(worker_seed)
     random.seed(worker_seed)
@@ -38,8 +38,9 @@ def seed_worker(worker_seed = RANDOM_SEED):
 def add_args(parser):
     """Adds arguments for parser."""
     parser.add_argument('--config_file', required=False,
-                        default="configs/train_configs/PURE_PURE_UBFC-rPPG_TSCAN_BASIC.yaml", type=str, help="The name of the model.")
+                        default="data01/jz/rppg_tool_HMS/configs/train_configs/jz_SUMS_SUMS_SUMS_PHYSNET_face_rr_both.yaml", type=str, help="The name of the model.")
     '''Neural Method Sample YAML LIST:
+      configs/train_configs/PURE_PURE_UBFC-rPPG_TSCAN_BASIC.yaml
       SCAMPS_SCAMPS_UBFC-rPPG_TSCAN_BASIC.yaml
       SCAMPS_SCAMPS_UBFC-rPPG_DEEPPHYS_BASIC.yaml
       SCAMPS_SCAMPS_UBFC-rPPG_PHYSNET_BASIC.yaml
@@ -174,8 +175,8 @@ if __name__ == "__main__":
             train_loader = data_loader.iBVPLoader.iBVPLoader
         elif config.TRAIN.DATA.DATASET == "SUMS":
             train_loader = data_loader.SUMSLoader.SUMSLoader
-        elif config.TRAIN.DATA.DATASET == "LADH":
-            train_loader = data_loader.LADHLoader.LADHLoader
+        elif config.TRAIN.DATA.DATASET == "HMS":
+            train_loader = data_loader.HealthMonitoringSLoader_jz.HealthMonitoringSLoader_jz
         else:
             raise ValueError("Unsupported dataset! Currently supporting UBFC-rPPG, PURE, MMPD, \
                              SCAMPS, BP4D+ (Normal and BigSmall preprocessing), UBFC-PHYS and iBVP.")
@@ -191,15 +192,14 @@ if __name__ == "__main__":
                 data_path=config.TRAIN.DATA.DATA_PATH,
                 config_data=config.TRAIN.DATA)
             
-            # dataset=train_data_loader
-            # print(f"dataset: {len(dataset)}")
             data_loader_dict['train'] = DataLoader(
                 dataset=train_data_loader,
                 num_workers=16,
                 batch_size=config.TRAIN.BATCH_SIZE,
                 shuffle=True,
                 worker_init_fn=seed_worker,
-                generator=train_generator
+                generator=train_generator,
+                drop_last=True  # 忽略最后不完整的批次
             )
         else:
             data_loader_dict['train'] = None
@@ -223,8 +223,8 @@ if __name__ == "__main__":
             valid_loader = data_loader.iBVPLoader.iBVPLoader
         elif config.VALID.DATA.DATASET == "SUMS":
             valid_loader = data_loader.SUMSLoader.SUMSLoader
-        elif config.VALID.DATA.DATASET == "LADH":
-            valid_loader = data_loader.LADHLoader.LADHLoader
+        elif config.VALID.DATA.DATASET == "HMS":
+            valid_loader = data_loader.HealthMonitoringSLoader_jz.HealthMonitoringSLoader_jz
         elif config.VALID.DATA.DATASET is None and not config.TEST.USE_LAST_EPOCH:
             raise ValueError("Validation dataset not specified despite USE_LAST_EPOCH set to False!")
         else:
@@ -244,7 +244,8 @@ if __name__ == "__main__":
                 batch_size=config.TRAIN.BATCH_SIZE,  # batch size for val is the same as train
                 shuffle=False,
                 worker_init_fn=seed_worker,
-                generator=general_generator
+                generator=general_generator,
+                drop_last=True  # 忽略最后不完整的批次
             )
         else:
             data_loader_dict['valid'] = None
@@ -273,8 +274,8 @@ if __name__ == "__main__":
             test_loader = data_loader.iBVPLoader.iBVPLoader
         elif config.TEST.DATA.DATASET == "SUMS":
             test_loader = data_loader.SUMSLoader.SUMSLoader
-        elif config.TEST.DATA.DATASET == "LADH":
-            test_loader = data_loader.LADHLoader.LADHLoader
+        elif config.TEST.DATA.DATASET == "HMS":
+            test_loader = data_loader.HealthMonitoringSLoader_jz.HealthMonitoringSLoader_jz
         else:
             raise ValueError("Unsupported dataset! Currently supporting UBFC-rPPG, PURE, MMPD, \
                              SCAMPS, BP4D+ (Normal and BigSmall preprocessing), UBFC-PHYS and iBVP.")
@@ -295,7 +296,8 @@ if __name__ == "__main__":
                 batch_size=config.INFERENCE.BATCH_SIZE,
                 shuffle=False,
                 worker_init_fn=seed_worker,
-                generator=general_generator
+                generator=general_generator,
+                drop_last=True  # 忽略最后不完整的批次
             )
         else:
             data_loader_dict['test'] = None
@@ -318,8 +320,8 @@ if __name__ == "__main__":
             unsupervised_loader = data_loader.iBVPLoader.iBVPLoader
         elif config.UNSUPERVISED.DATA.DATASET == "SUMS":
             unsupervised_loader = data_loader.SUMSLoader.SUMSLoader
-        elif config.UNSUPERVISED.TRAIN.DATA.DATASET == "LADH":
-            unsupervised_loader = data_loader.LADHLoader.LADHLoader
+        elif config.UNSUPERVISED.TRAIN.DATA.DATASET == "HMS":
+            unsupervised_loader = data_loader.HealthMonitoringSLoader_jz.HealthMonitoringSLoader_jz
         else:
             raise ValueError("Unsupported dataset! Currently supporting UBFC-rPPG, PURE, MMPD, \
                              SCAMPS, BP4D+, UBFC-PHYS and iBVP.")
@@ -334,7 +336,8 @@ if __name__ == "__main__":
             batch_size=1,
             shuffle=False,
             worker_init_fn=seed_worker,
-            generator=general_generator
+            generator=general_generator,
+            drop_last=True  # 忽略最后不完整的批次
         )
 
     else:
@@ -348,3 +351,4 @@ if __name__ == "__main__":
         unsupervised_method_inference(config, data_loader_dict)
     else:
         print("TOOLBOX_MODE only support train_and_test or only_test !", end='\n\n')
+
