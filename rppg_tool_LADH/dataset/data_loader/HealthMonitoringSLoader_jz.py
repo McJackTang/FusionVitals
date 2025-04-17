@@ -7,7 +7,7 @@ from scipy.interpolate import interp1d
 from dataset.data_loader.BaseLoader import BaseLoader
 import matplotlib.pyplot as plt
 
-class LADHLoader(BaseLoader):
+class HealthMonitoringSLoader_jz(BaseLoader):
     def __init__(self, name, data_path, config_data):
         """Initializes an THUSPO2 dataloader."""
         self.info = config_data.INFO  
@@ -16,38 +16,55 @@ class LADHLoader(BaseLoader):
         super().__init__(name, data_path, config_data)
 
     def get_raw_data(self, data_path):
-        """Returns data directories in the specified path (suitable for the THUSPO2 dataset)."""
-        "Get all 060200, 060201... files; data_path needs to be changed"
+        """Returns data directories in the specified path."""
         print(data_path)
-        data_dirs = glob.glob(data_path + os.sep + 'p_*')
+        # print("jz_dataloader")
+
+        # 查找所有以 'mirror_' 开头的文件夹
+        data_dirs = glob.glob(data_path + os.sep + 'mirror_*')
+        # print("data_dirs = ",data_dirs)
+        
+        # 如果没有找到文件夹，抛出错误
         if not data_dirs:
             raise ValueError(self.dataset_name + ' Data path is empty!')
+        
         dirs = list()
-        # data_dirs absolute path
+
+        # 遍历每个镜像文件夹
         for data_dir in data_dirs:
+            # 获取镜像文件夹名（例如 mirror_1, mirror_2）
+            subject = os.path.split(data_dir)[-1]
             
-            subject = os.path.split(data_dir)[-1] 
-            #subject = int(os.path.split(data_dir)[-1]) # File name directly 060200
-            d_dirs = os.listdir(data_dir)
-            print(d_dirs)
-            # v01 v02 v03 v04
-            for dir in d_dirs:    
-                items_dirs = os.listdir(data_dir + os.sep + dir) # avi csv 
-                for item in items_dirs:
-                    if "H264.avi" in item: # If returning all together here
-                        dirs.append({'index': dir[1:],
-                                    'path': data_dir + os.sep + dir + os.sep +item,
-                            'subject': subject,
-                            #'type': item.split('_')[0].split('.')[0]
-                            'type': '_'.join(item.split('_')[-2:]).split('.')[0]
-                        })
-                
-        # print(dirs)    
+            # 遍历 v01 到 v04 文件夹
+            for v_dir in ['01', '02', '03', '04']:
+                v_path = os.path.join(data_dir, v_dir)  # 拼接 v01, v02, v03, v04 文件夹的路径
+                # print("v_path=",v_path)
+                if not os.path.exists(v_path):
+                    continue  # 如果 vXX 文件夹不存在，跳过
+
+                # 检查 Camera1 和 Camera2 文件夹中的 video.avi 文件
+                for camera in ['Camera1', 'Camera2']:
+                    camera_path = os.path.join(v_path, camera)
+                    # print("camera_path=",camera_path)
+                    if not os.path.exists(camera_path):
+                        print(f"Warning: {camera_path} does not exist.")
+                        continue  # 如果 Camera1 或 Camera2 文件夹不存在，跳过
+                    if os.path.exists(camera_path):
+                        items = os.listdir(camera_path)  # 获取 Camera1 或 Camera2 中的所有文件
+                        for item in items:
+                            if item == "video.avi":  # 找到 video.avi 文件
+                                dirs.append({
+                                    'index': v_dir[1:],  # 去掉 'v' 字符
+                                    'path': os.path.join(camera_path, item),  # 拼接完整的文件路径
+                                    'subject': subject,  # 镜像文件夹名作为 'subject'
+                                    'type': camera  # 文件所在的相机类型（Camera1 或 Camera2）
+                                })
+                    
         return dirs
         
-
     def split_raw_data(self, data_dirs, begin, end):
         """Returns a subset of data dirs, split with begin and end values."""
+        print("start split_raw_data")
         if begin == 0 and end == 1:  # return the full directory if begin == 0 and end == 1
             return data_dirs
         # Split according to tags v01, v02, v03, v04
@@ -57,7 +74,7 @@ class LADHLoader(BaseLoader):
             # index = data['index']
             # data_dir = data['path']
             subject = data['subject']
-            # type = data['type'] # face or face_IR
+            # type = data['type'] # face or finger
             # Create a data directory dictionary indexed by subject number
             if subject not in data_info:
                 data_info[subject] = list()
@@ -89,21 +106,46 @@ class LADHLoader(BaseLoader):
     def preprocess_dataset_subprocess(self, data_dirs, config_preprocess, i,  file_list_dict):
         # Read video frames
         video_file = data_dirs[i]['path']
+        print("video_file=",video_file)
         frames = self.read_video(video_file)
 
         # Get the directory of the current video
         video_dir = os.path.dirname(video_file)
+        print("video_dir=",video_dir)
 
+        # # Extract subject ID and experiment ID from the directory path
+        # subject_id = video_dir.split(os.sep)[-2]
+        # experiment_id = video_dir.split(os.sep)[-1]  # Assuming experiment ID follows subject ID
+        # print(f"subject_id: {subject_id}, experiment_id: {experiment_id}")
+        # # Get BVP, frame timestamps, and SpO2 files
+        # bvp_file = os.path.join(video_dir, "BVP.csv")
+        # timestamp_file = os.path.join(video_dir, "frames_timestamp_RGB.csv")
+        # spo2_file = os.path.join(video_dir, "SpO2.csv")
+		# # Read RR data and timestamps
+        # rr_file = os.path.join(video_dir, "RR.csv")
         # Extract subject ID and experiment ID from the directory path
         subject_id = video_dir.split(os.sep)[-2]
         experiment_id = video_dir.split(os.sep)[-1]  # Assuming experiment ID follows subject ID
+        name_id = video_dir.split(os.sep)[-3]
         print(f"subject_id: {subject_id}, experiment_id: {experiment_id}")
-        # Get BVP, frame timestamps, and SpO2 files
-        bvp_file = os.path.join(video_dir, "BVP.csv")
-        timestamp_file = os.path.join(video_dir, "frames_timestamp_RGB.csv")
-        spo2_file = os.path.join(video_dir, "SpO2.csv")
-		# Read RR data and timestamps
-        rr_file = os.path.join(video_dir, "RR.csv")
+
+        # Get the directory of the parent folder (the level above video_dir)
+        parent_dir = os.path.dirname(video_dir)
+
+        # Get the full paths of the files based on the new location
+        bvp_file = os.path.join(parent_dir, "Oximeter", "bvp.csv")  # bvp.csv is in the Oximeter folder at the same level as video_dir
+        timestamp_file = os.path.join(video_dir, "timestamps.csv")  # timestamps.csv is directly in video_dir
+        spo2_file = os.path.join(parent_dir, "Oximeter", "spo2.csv")  # spo2.csv is in the Oximeter folder at the same level as video_dir
+        rr_file = os.path.join(parent_dir, "Respiration", "resp.csv")  # resp.csv is in the Respiration folder at the same level as video_dir
+
+
+
+# Now you can read the files as needed
+# Example:
+# bvp_data = self.read_bvp(bvp_file)
+# timestamp_data = self.read_frame_timestamps(timestamp_file)
+# spo2_data = self.read_spo2(spo2_file)
+# rr_data = self.read_rr(rr_file)
 
         # Read frame timestamps
         frame_timestamps = self.read_frame_timestamps(timestamp_file)
@@ -116,6 +158,7 @@ class LADHLoader(BaseLoader):
 		
 		# Read RR data and timestamps
         rr_timestamps, rr_values = self.read_rr(rr_file)
+        print("finish read")
         # # Calculate and print sampling frequency for BVP, SpO2, RR
         # bvp_sampling_rate = 1 / (bvp_timestamps[1] - bvp_timestamps[0])  # Assuming uniform sampling
         # print(f"BVP sampling frequency: {bvp_sampling_rate} Hz")
@@ -160,21 +203,29 @@ class LADHLoader(BaseLoader):
         # Label once here
         # print("video_file:")
         # print(video_file)
-        if "RGB_H264" in video_file:
-            # print(f"22222222222: {video_file}")
-            frames_clips, bvps_clips, spo2_clips, rr_clips = self.preprocess(frames, bvps, spo2, rr, config_preprocess, "face")
-            # print(f"face Frames clips shape: {frames_clips.shape}")
-            # print(f"BVP clips shape: {bvps_clips.shape}")
-            # print(f"SpO2 clips shape: {spo2_clips.shape}")
-            # print(f"RR clips shape: {rr_clips.shape}")
+
+        # if "RGB_H264" in video_file:
+        if experiment_id=='Camera2':
+            print("experiment_id=='Camera2'")
+            print(f"video_file: {video_file}")
+            frames_clips, bvps_clips, spo2_clips, rr_clips = self.preprocess(frames, bvps, spo2, rr, config_preprocess, "face", name_id, subject_id, experiment_id)
+            print(f"face Frames clips shape: {frames_clips.shape}")
+            print(f"BVP clips shape: {bvps_clips.shape}")
+            print(f"SpO2 clips shape: {spo2_clips.shape}")
+            print(f"RR clips shape: {rr_clips.shape}")
             
-            filename = f"{subject_id}_{experiment_id}"
+            filename = f"{name_id}_{subject_id}_{experiment_id}"
             input_name_list, label_name_list, spo2_name_list, rr_name_list = self.save_multi_process(frames_clips, bvps_clips, spo2_clips, rr_clips, filename)
             file_list_dict[i] = input_name_list
         else:
-            frames_clips, _, _, _ = self.preprocess(frames, None, None, None, config_preprocess, "face_IR")
-            # print(f"face_IR Frames clips shape: {frames_clips.shape}"
-            filename = f"{subject_id}_{experiment_id}_IR"
+            print("experiment_id=='Camera1'")
+            frames_clips, _, _, _ = self.preprocess(frames, None, None, None, config_preprocess, "face_IR", name_id, subject_id, experiment_id) 
+            # print(f"finger Frames clips shape: {frames_clips.shape}"
+            # print(f"face Frames clips shape: {frames_clips.shape}")
+            # print(f"BVP clips shape: {bvps_clips.shape}")
+            # print(f"SpO2 clips shape: {spo2_clips.shape}")
+            # print(f"RR clips shape: {rr_clips.shape}")            
+            filename = f"{name_id}_{subject_id}_{experiment_id}_IR"
             input_name_list = self.save_multi_process_no_labels(frames_clips, filename)
             file_list_dict[i] = input_name_list
 
@@ -182,46 +233,47 @@ class LADHLoader(BaseLoader):
         """Load preprocessed data listed in the file list."""
         type_info = self.info.TYPE
         state = self.info.STATE
-        # print(f"self.info.TYPE: {self.info.TYPE}")
-        #print(f"type_info: {type_info}, state: {state}")
+        # print(f"self.info: {self.info}")
+        # print(f"type_info: {type_info}, state: {state}")
         
         file_list_path = self.file_list_path   # Get file list path
-        # print(file_list_path)
+        print("11111file_list_path:",file_list_path)
         file_list_df = pd.read_csv(file_list_path)  # Read file list
         inputs_temp = file_list_df['input_files'].tolist()  # Get input file list
         inputs_face = [] 
         inputs_face_IR = [] 
-        # v01 v02 v03 v04 face face_IR configuration information
+        # v01 v02 v03 v04 face finger configuration information
         for each_input in inputs_temp:
             #print(f"each_input: {each_input}")
             info = each_input.split(os.sep)[-1].split('_')
-
-            state = int(info[4][-1])
-            # print(f"state: {state}")
-            if info[5] == "face":   # face face_IR
+            print("info=",info)
+            state = int(info[2][-1])
+            # print("state=",state)
+            #print(f"state: {state}")
+            if info[3] == "Camera1":   # face IR
                 type = 1
             else:
                 type = 2
-            # print(f"info:{info}, state: {state}, type: {type}")
+            #print(f"info:{info}, state: {state}, type: {type}")
             # Filter data according to configuration information
 
-            if (state in self.info.STATE) and (type in self.info.TYPE) and type == 1:
-                inputs_face.append(each_input)
-                #print(f"each_input: {each_input}")
-            # face_IR 2
             if (state in self.info.STATE) and (type in self.info.TYPE) and type == 2:
+                inputs_face.append(each_input)
+                # print(f"each_input: {each_input}")
+            # finger 2
+            if (state in self.info.STATE) and (type in self.info.TYPE) and type == 1:
                 inputs_face_IR.append(each_input)
-                # print(f"each_inputs_face_IR: {each_input}")
-            # print(f"inputs_face_len: {len(inputs_face)}, inputs_face_IR: {len(inputs_face_IR)}")
+        print(f"inputs_face_len: {len(inputs_face)}, inputs_face_IR: {len(inputs_face_IR)}")
         if not inputs_face and not inputs_face_IR:
             raise ValueError(self.dataset_name + ' Dataset loading error!')
-
-        # single face face_IR both
+        # print(inputs_face)
+        if not inputs_face:
+            raise ValueError(self.dataset_name + ' Dataset loading error!')
+        # single face finger both
         # print(f"len(type_info): {len(type_info)}") 
         if len(type_info) == 1:
             if type_info[0] == 1: # face
                 inputs_face = sorted(inputs_face)
-                # print(f"inputs_face: {inputs_face}") 
                 labels_bvp = [input_file.replace("face_input", "hr") for input_file in inputs_face]  
                 labels_spo2 = [input_file.replace("face_input", "spo2") for input_file in inputs_face]
                 labels_rr = [input_file.replace("face_input", "rr") for input_file in inputs_face]  
@@ -229,25 +281,17 @@ class LADHLoader(BaseLoader):
                 self.labels_bvp = labels_bvp
                 self.labels_spo2 = labels_spo2
                 self.labels_rr = labels_rr
-                self.preprocessed_data_len = len(inputs_face)
-                # print(f"labels_bvp: {labels_bvp}") 
-                # print(f"len(inputs_face): {len(inputs_face)}")
-                # print(f"inputs_face: {inputs_face[20]}")  
-            else: # face_IR    
+                self.preprocessed_data_len = len(inputs_face)   
+            else: # finger    
                 inputs_face_IR = sorted(inputs_face_IR)
-                labels_bvp = [input_file.replace("IR_input", "hr") for input_file in inputs_face_IR]  
-                labels_spo2 = [input_file.replace("IR_input", "spo2") for input_file in inputs_face_IR]  
-                labels_rr = [input_file.replace("IR_input", "rr") for input_file in inputs_face_IR]
+                labels_bvp = [input_file.replace("finger_input", "hr") for input_file in inputs_face_IR]  
+                labels_spo2 = [input_file.replace("finger_input", "spo2") for input_file in inputs_face_IR]  
+                labels_rr = [input_file.replace("finger_input", "rr") for input_file in inputs_face_IR]
                 self.inputs_face_IR = inputs_face_IR
                 self.labels_bvp = labels_bvp
                 self.labels_spo2 = labels_spo2
                 self.labels_rr = labels_rr
-                self.preprocessed_data_len = len(inputs_face_IR)
-                # print(f"labels_bvp: {labels_bvp}")
-                # print(f"labels_spo2: {len(labels_spo2)}") 
-                # print(f"labels_rr: {len(labels_rr)}") 
-                # print(f"len(inputs_face_IR): {len(inputs_face_IR)}")
-                # print(f"inputs_face_IR: {inputs_face_IR[20]}")   
+                self.preprocessed_data_len = len(inputs_face_IR)   
         else:
             inputs_face = sorted(inputs_face)
             inputs_face_IR = sorted(inputs_face_IR)
@@ -261,8 +305,8 @@ class LADHLoader(BaseLoader):
             self.labels_rr = labels_rr
             # Mixed training also only requires one of the lengths
             self.preprocessed_data_len = len(inputs_face)   
-            print(f"inputs_face: {inputs_face[20]}")
-            print(f"inputs_face_IR: {inputs_face_IR[20]}")
+            # print(f"inputs_face: {inputs_face[20]}")
+            # print(f"inputs_face_IR: {inputs_face_IR[20]}")
 
             
 
@@ -287,7 +331,7 @@ class LADHLoader(BaseLoader):
         """Reads a respiratory rate (RR) signal file with timestamps."""
         data = pd.read_csv(rr_file)
         timestamps = data['timestamp'].values
-        rr_values = data['rr'].values
+        rr_values = data['resp'].values
         return timestamps, rr_values
 
     @staticmethod
@@ -316,12 +360,26 @@ class LADHLoader(BaseLoader):
             success, frame = VidObj.read()
         return np.array(frames)
 
-    def preprocess(self, frames, bvps, spo2, rr, config_preprocess, video_type):
+    def preprocess(self, frames, bvps, spo2, rr, config_preprocess, video_type, name_id, subject_id, experiment_id):
         """Preprocesses a pair of data."""
-        if video_type == "face":
-            DO_CROP_FACE = True
-        else:
-            DO_CROP_FACE = False
+        # if video_type == "face":
+        #     DO_CROP_FACE = True
+        # else:
+        #     DO_CROP_FACE = False
+        DO_CROP_FACE = True
+        # 获取第一帧用于保存裁剪前后的图像
+        first_frame = frames[0]
+        f150_frame = frames[150]
+        # if bvps is None:
+        #     print("bvps_clips is None. Please ensure the data is loaded correctly.")
+        # if spo2 is None:
+        #     print("spo2_clips is None. Please ensure the data is loaded correctly.")    
+        # if rr is None:
+        #     print("rr_clips is None. Please ensure the data is loaded correctly.")   
+        # 获取原始图像并保存
+        # original_image_path = f"/data01/jz/rppg_tool_HMS/result/frame_crop/{name_id}_{subject_id}_original_first_frame.png"
+        # cv2.imwrite(original_image_path, first_frame)
+
         frames = self.crop_face_resize(
             frames,
             DO_CROP_FACE,
@@ -334,8 +392,59 @@ class LADHLoader(BaseLoader):
             config_preprocess.RESIZE.W,
             config_preprocess.RESIZE.H)
         
+        # 获取裁剪后的第一帧并保存
+        cropped_first_frame = frames[0]
+        cropped_f150_frame = frames[150]
+        # cropped_image_path = f"/data01/jz/rppg_tool_HMS/result/frame_crop/{name_id}_{subject_id}_cropped_first_frame.png"
+        # cv2.imwrite(cropped_image_path, cropped_first_frame)
+        # 确保图像是8位无符号整数类型
+        if cropped_first_frame.dtype == 'float64':
+            cropped_first_frame = cv2.convertScaleAbs(cropped_first_frame)
+        if cropped_f150_frame.dtype == 'float64':
+            cropped_f150_frame = cv2.convertScaleAbs(cropped_f150_frame)
+        # 显示裁剪前后的图像进行对比
+        plt.figure(figsize=(12, 8))
+
+        # 原始图像
+        plt.subplot(1, 2, 1)
+        plt.imshow(cv2.cvtColor(first_frame, cv2.COLOR_BGR2RGB))
+        plt.title('Original First Frame')
+        plt.axis('off')
+
+        # 裁剪后的图像
+        plt.subplot(1, 2, 2)
+        plt.imshow(cv2.cvtColor(cropped_first_frame, cv2.COLOR_BGR2RGB))
+        plt.title('Cropped First Frame')
+        plt.axis('off')
+
+        # 保存图像
+        comparison_image_path = f"/data01/jz/rppg_tool_HMS/result/frame_crop_RF/{name_id}_{subject_id}_{experiment_id}_first_frame_comparison.png"
+        plt.tight_layout()
+        plt.savefig(comparison_image_path)
+        plt.close()
         
-        
+        ####存储150帧对比图
+        # 显示裁剪前后的图像进行对比
+        plt.figure(figsize=(12, 8))
+
+        # 原始图像
+        plt.subplot(1, 2, 1)
+        plt.imshow(cv2.cvtColor(f150_frame, cv2.COLOR_BGR2RGB))
+        plt.title('Original 150 Frame')
+        plt.axis('off')
+
+        # 裁剪后的图像
+        plt.subplot(1, 2, 2)
+        plt.imshow(cv2.cvtColor(cropped_f150_frame, cv2.COLOR_BGR2RGB))
+        plt.title('Cropped 150 Frame')
+        plt.axis('off')
+
+        # 保存图像
+        comparison_image_path = f"/data01/jz/rppg_tool_HMS/result/frame_crop_RF/{name_id}_{subject_id}_{experiment_id}_150_frame_comparison.png"
+        plt.tight_layout()
+        plt.savefig(comparison_image_path)
+        plt.close()
+                
 
         data = list()
         for data_type in config_preprocess.DATA_TYPE:
@@ -380,7 +489,7 @@ class LADHLoader(BaseLoader):
             return frames_clips, None, None, None
 
     def save_multi_process_no_labels(self, frames_clips, filename):
-        """Save all the chunked data with multi-thread processing (no labels for face_IR)."""
+        """Save all the chunked data with multi-thread processing (no labels for finger)."""
         if not os.path.exists(self.cached_path):
             os.makedirs(self.cached_path, exist_ok=True)
 
