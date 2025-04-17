@@ -883,7 +883,7 @@ def plot_rr_waveforms(rr_pred, rr_label):
     plt.legend()
     plt.grid(alpha=0.4)
     plt.tight_layout()
-    plt.savefig('./result.png')
+    plt.savefig('/data01/jz/rppg_tool_HMS/result/result.png')
     plt.show()
 
 def plot_rr_window(rr_pred, rr_lable):
@@ -902,7 +902,7 @@ def plot_rr_window(rr_pred, rr_lable):
     axes[1].set_ylabel('Data Value')
     axes[1].legend()
 
-    plt.savefig('./rr_window.png')
+    plt.savefig('/data01/jz/rppg_tool_HMS/result/rr_window.png')
     plt.show()
 
 def plot_rr(rr_pred, rr_lable):
@@ -921,7 +921,7 @@ def plot_rr(rr_pred, rr_lable):
     axes[1].set_ylabel('Data Value')
     axes[1].legend()
 
-    plt.savefig('./lable_pred.png')
+    plt.savefig('/data01/jz/rppg_tool_HMS/result/lable_pred.png')
     plt.show()
 
 def plot_rr_waveforms(rr_pred, rr_label):
@@ -935,5 +935,5 @@ def plot_rr_waveforms(rr_pred, rr_label):
     plt.xlabel("number")
     plt.ylabel("RR Rate")
     plt.legend()
-    plt.savefig('./tong_rr.png')
+    plt.savefig('/data01/jz/rppg_tool_HMS/result/tong_rr.png')
     plt.show()
