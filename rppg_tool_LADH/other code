@@ -1,1 +1,86 @@
+import os
+import numpy as np
+import matplotlib.pyplot as plt
 
+# 定义文件夹路径
+data_folder = '/data03/lk/mxl/test/HMS_SizeW72_SizeH72_ClipLength128_DataTypeDiffNormalized_DataAugNone_LabelTypeDiffNormalized_Crop_faceTrue_BackendHC_Large_boxTrue_Large_size1.5_Dyamic_DetFalse_det_len32_Median_face_boxFalse'
+save_folder = '/data01/jz/rppg_tool_HMS/result/frame_crop_mxl'
+
+# 获取所有文件
+files = os.listdir(data_folder)
+
+# 用于分组的字典
+grouped_files = {}
+
+# 遍历文件，按文件名的前五部分分组
+for file in files:
+    # 按 _ 分割文件名
+    parts = file.split('_')
+    
+    # # 如果文件名分割结果不符合预期格式，跳过
+    # if len(parts) < 7:
+    #     continue    
+    # # 提取前五部分作为分组依据，和第七部分（去除 .npy 后缀）
+    # prefix = '_'.join(parts[:5])  # 前五部分
+    # part7 = int(parts[6].split('.')[0])  # 去掉 .npy 后缀，只提取数字
+    
+    # 对于mxl数据格式，如果文件名分割结果不符合预期格式，跳过
+    if len(parts) < 8:
+        continue
+    prefix = '_'.join(parts[:6])  # 前五部分
+    part7 = int(parts[7].split('.')[0])  # 去掉 .npy 后缀，只提取数字
+    
+    # 将符合条件的文件加入对应的组
+    if prefix not in grouped_files:
+        grouped_files[prefix] = []
+    grouped_files[prefix].append((part7, file))
+
+# 对每组进行处理
+for prefix, file_group in grouped_files.items():
+    # 确保每组有28个文件
+    if len(file_group) == 28:
+        # 排序文件列表，确保按照第7部分排序
+        file_group.sort()
+
+        # 创建一个4行7列的图
+        fig, axes = plt.subplots(4, 7, figsize=(14, 8))
+
+        # 遍历文件组中的每个文件，读取第一帧并绘制
+        for i, (part7, file_name) in enumerate(file_group):
+            # 获取文件路径
+            file_path = os.path.join(data_folder, file_name)
+
+            # 读取npy文件
+            data = np.load(file_path)
+
+            # 假设第一帧是数据的第一个元素
+            frame = data[0]
+            # print("frame =",frame)
+            # 如果frame是浮动类型，进行归一化
+            frame = np.clip(frame, 0, 1)  # 归一化到 [0, 1]
+
+            # 如果frame超出 [0, 1] 范围，可以乘以255转换为整数并裁剪
+            frame = np.clip(frame * 255, 0, 255).astype(np.uint8)
+
+            # 获取对应的行列位置
+            row = i // 7
+            col = i % 7
+
+            # 绘制子图
+            ax = axes[row, col]
+            ax.imshow(frame, cmap='gray')
+            ax.set_title(str(part7))  # 标注第7部分的数字
+            ax.axis('off')  # 关闭坐标轴
+
+        # 设置大图的标题
+        fig.suptitle(prefix, fontsize=16)
+
+        # 保存大图为PNG格式
+        save_path = os.path.join(save_folder, prefix + '.png')
+        plt.tight_layout(rect=[0, 0, 1, 0.96])  # 防止标题被覆盖
+        plt.savefig(save_path)
+        plt.close(fig)
+
+        print(f"保存图像: {save_path}")
+    else:
+        print(f"警告：文件组 {prefix} 的文件数不为28，跳过该组")
