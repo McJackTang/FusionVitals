@@ -727,7 +727,8 @@ def calculate_metrics_RR(predictions, labels, config, datatype):
                             y_label='rPPG RR [bpm]',
                             show_legend=True, figure_size=(5, 5),
                             the_title=f'{filename_id}_FFT_BlandAltman_ScatterPlot_RR',
-                            file_name=f'{filename_id}_FFT_BlandAltman_ScatterPlot_RR.pdf')
+                            file_name=f'{filename_id}_FFT_BlandAltman_ScatterPlot_RR.pdf',
+                            measure_lower_lim=0, measure_upper_lim=30)
                         compare.difference_plot(
                             x_label='Difference between rPPG RR and GT PPG RR [bpm]',
                             y_label='Average of rPPG RR and GT PPG RR [bpm]',
