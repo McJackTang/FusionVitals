@@ -94,7 +94,7 @@ class BaseLoader(Dataset):
 
     def __getitem__(self, index):
         """Returns a clip of video(3,T,W,H) and its corresponding signals(T)."""
-        print(f"Index: {index}, Length of inputs_face_IR: {len(self.inputs_face_IR)}, Length of inputs_face:{len(self.inputs)}")
+        # print(f"Index: {index}, Length of inputs_face_IR: {len(self.inputs_face_IR)}, Length of inputs_face:{len(self.inputs)}")
         # 加载基本标签
         label_bvp = np.load(self.labels_bvp[index])
         label_spo2 = np.load(self.labels_spo2[index])
@@ -145,6 +145,7 @@ class BaseLoader(Dataset):
             split_idx = item_path_filename.rindex('_input_')
             filename = item_path_filename[:split_idx]
             chunk_id = item_path_filename[split_idx + len('_input_'):].split('.')[0]
+            # print("filename=",filename,"chunk_id=",chunk_id)
             return data_face, data_face_IR, label_bvp, label_spo2, label_rr, filename, chunk_id
 
     def get_raw_data(self, raw_data_path):
@@ -302,7 +303,6 @@ class BaseLoader(Dataset):
 
 
 
-
     def face_detection(self, frame, backend, use_larger_box=False, larger_box_coef=1.0):
         """Face detection on a single frame.
 
@@ -312,50 +312,46 @@ class BaseLoader(Dataset):
             use_larger_box(bool): whether to use a larger bounding box on face detection.
             larger_box_coef(float): Coef. of larger box.
         Returns:
-            face_box_coor(List[int]): coordinates of face bouding box.
+            face_box_coor(List[int]): coordinates of face bounding box.
+            confidence(float): confidence score of the detected face (if using RetinaFace).
         """
         if backend == "HC":
             # Use OpenCV's Haar Cascade algorithm implementation for face detection
-            # This should only utilize the CPU
-
-            # detector = cv2.CascadeClassifier(
-            # './dataset/haarcascade_frontalface_default.xml')
             detector = cv2.CascadeClassifier(
-            '/data01/jz/rppg_tool_HMS/dataset/haarcascade_frontalface_default.xml')
+                '/data01/jz/rppg_tool_HMS/dataset/haarcascade_frontalface_default.xml')
 
-            # Computed face_zone(s) are in the form [x_coord, y_coord, width, height]
-            # (x,y) corresponds to the top-left corner of the zone to define using
-            # the computed width and height.
             face_zone = detector.detectMultiScale(frame)
 
             if len(face_zone) < 1:
                 print("ERROR: No Face Detected")
                 face_box_coor = [0, 0, frame.shape[0], frame.shape[1]]
+                confidence = 0.0  # No face detected, confidence is 0
             elif len(face_zone) >= 2:
                 # Find the index of the largest face zone
-                # The face zones are boxes, so the width and height are the same
                 max_width_index = np.argmax(face_zone[:, 2])  # Index of maximum width
                 face_box_coor = face_zone[max_width_index]
                 print("Warning: More than one faces are detected. Only cropping the biggest one.")
+                confidence = 1.0  # Haar cascade doesn't provide confidence, so assume max confidence
             else:
                 face_box_coor = face_zone[0]
+                confidence = 1.0  # Haar cascade doesn't provide confidence, so assume max confidence
         elif backend == "RF":
             # Use a TensorFlow-based RetinaFace implementation for face detection
-            # This utilizes both the CPU and GPU
             res = RetinaFace.detect_faces(frame)
+            
+            if isinstance(res, tuple):
+                print("res is tuple!!! res=",res)
+                res = res[0]  # 假设第一个元素是字典，按需调整
 
             if len(res) > 0:
                 # Pick the highest score
                 highest_score_face = max(res.values(), key=lambda x: x['score'])
                 face_zone = highest_score_face['facial_area']
-
-                # This implementation of RetinaFace returns a face_zone in the
-                # form [x_min, y_min, x_max, y_max] that corresponds to the 
-                # corners of a face zone
-                x_min, y_min, x_max, y_max = face_zone
+                confidence = highest_score_face['score']  # Confidence score
 
                 # Convert to this toolbox's expected format
-                # Expected format: [x_coord, y_coord, width, height]
+                x_min, y_min, x_max, y_max = face_zone
+
                 x = x_min
                 y = y_min
                 width = x_max - x_min
@@ -375,6 +371,7 @@ class BaseLoader(Dataset):
             else:
                 print("ERROR: No Face Detected")
                 face_box_coor = [0, 0, frame.shape[0], frame.shape[1]]
+                confidence = 0.0  # No face detected, confidence is 0
         else:
             raise ValueError("Unsupported face detection backend!")
 
@@ -383,63 +380,95 @@ class BaseLoader(Dataset):
             face_box_coor[1] = max(0, face_box_coor[1] - (larger_box_coef - 1.0) / 2 * face_box_coor[3])
             face_box_coor[2] = larger_box_coef * face_box_coor[2]
             face_box_coor[3] = larger_box_coef * face_box_coor[3]
-        return face_box_coor
+
+        return face_box_coor, confidence
+
 
     def crop_face_resize(self, frames, use_face_detection, backend, use_larger_box, larger_box_coef, use_dynamic_detection, 
-                         detection_freq, use_median_box, width, height):
+                        detection_freq, use_median_box, width, height):
         """Crop face and resize frames.
 
         Args:
             frames(np.array): Video frames.
-            use_dynamic_detection(bool): If False, all the frames use the first frame's bouding box to crop the faces
-                                         and resizing.
-                                         If True, it performs face detection every "detection_freq" frames.
+            use_dynamic_detection(bool): If False, all the frames use the first frame's bounding box to crop the faces
+                                        and resizing. If True, it performs face detection every "detection_freq" frames.
             detection_freq(int): The frequency of dynamic face detection e.g., every detection_freq frames.
             width(int): Target width for resizing.
             height(int): Target height for resizing.
-            use_larger_box(bool): Whether enlarge the detected bouding box from face detection.
-            use_face_detection(bool):  Whether crop the face.
-            larger_box_coef(float): the coefficient of the larger region(height and weight),
-                                the middle point of the detected region will stay still during the process of enlarging.
+            use_larger_box(bool): Whether enlarge the detected bounding box from face detection.
+            use_face_detection(bool): Whether crop the face.
+            larger_box_coef(float): the coefficient of the larger region(height and width),
+                                    the middle point of the detected region will stay still during the process of enlarging.
         Returns:
             resized_frames(list[np.array(float)]): Resized and cropped frames
+            confidences(list[float]): List of confidence scores for each frame.
         """
-        # Face Cropping
         if use_dynamic_detection:
             num_dynamic_det = ceil(frames.shape[0] / detection_freq)
+            # print("frames.shape[0]=",frames.shape[0], "detection_freq=", detection_freq)
         else:
             num_dynamic_det = 1
+
         face_region_all = []
+        confidences = []
+
         # Perform face detection by num_dynamic_det" times.
         for idx in range(num_dynamic_det):
             if use_face_detection:
-                face_region_all.append(self.face_detection(frames[detection_freq * idx], backend, use_larger_box, larger_box_coef))
+                face_box, confidence = self.face_detection(frames[detection_freq * idx], backend, use_larger_box, larger_box_coef)
+                # print("confidence=", confidence)
+                face_region_all.append(face_box)
+                confidences.append(confidence)
             else:
+                # If no detection, use the whole frame
                 face_region_all.append([0, 0, frames.shape[1], frames.shape[2]])
+                confidences.append(1.0)  # No detection, assume full confidence
+
         face_region_all = np.asarray(face_region_all, dtype='int')
+
         if use_median_box:
             # Generate a median bounding box based on all detected face regions
             face_region_median = np.median(face_region_all, axis=0).astype('int')
 
-        # Frame Resizing
+        # Initialize resized_frames and fill confidences for each frame
         resized_frames = np.zeros((frames.shape[0], height, width, 3))
+        all_confidences = []
+
         for i in range(0, frames.shape[0]):
             frame = frames[i]
+            
             if use_dynamic_detection:  # use the (i // detection_freq)-th facial region.
                 reference_index = i // detection_freq
-            else:  # use the first region obtrained from the first frame.
+            else:  # use the first region obtained from the first frame.
                 reference_index = 0
+
             if use_face_detection:
                 if use_median_box:
                     face_region = face_region_median
                 else:
                     face_region = face_region_all[reference_index]
                 frame = frame[max(face_region[1], 0):min(face_region[1] + face_region[3], frame.shape[0]),
-                        max(face_region[0], 0):min(face_region[0] + face_region[2], frame.shape[1])]
-            resized_frames[i] = cv2.resize(frame, (width, height), interpolation=cv2.INTER_AREA)
-        return resized_frames
+                            max(face_region[0], 0):min(face_region[0] + face_region[2], frame.shape[1])]
+                
+                # Add confidence for the current frame
+                current_confidence = confidences[reference_index] if use_dynamic_detection else confidences[0]
+            else:
+                # If no detection, use the full frame
+                current_confidence = 1.0  # Full confidence when no detection
 
-    def chunk(self, frames, bvps, spo2, rr, chunk_length, video_type):
+            resized_frames[i] = cv2.resize(frame, (width, height), interpolation=cv2.INTER_AREA)
+            
+            # Ensure confidences has the same length as frames
+            all_confidences.append(current_confidence)
+
+        print("confidences=", len(all_confidences))
+        print("resized_frames.shape=", resized_frames.shape)
+        
+        return resized_frames, all_confidences
+
+
+
+    def chunk(self, frames, bvps, spo2, rr, confidences, chunk_length, video_type):
         """Chunk the data into small chunks.
 
         Args:
@@ -447,6 +476,7 @@ class BaseLoader(Dataset):
             bvps(np.array): blood volume pulse (PPG) labels
             spo2(np.array): SpO2 labels
             rr(np.array): respiratory rate (RR) labels
+            confidences(np.array): confidence values for each frame
             chunk_length(int): the length of each chunk
             video_type(str): the type of video ("face" or "finger")
         Returns:
@@ -454,18 +484,24 @@ class BaseLoader(Dataset):
             bvp_clips: all chunks of bvp frames (None for finger)
             spo2_clips: all chunks of spo2 frames (None for finger)
             rr_clips: all chunks of rr frames (None for finger)
+            confidences_clips: all chunks of confidence values
         """
         clip_num = frames.shape[0] // chunk_length
+
+        # Creating chunks for frames
         frames_clips = [frames[i * chunk_length:(i + 1) * chunk_length] for i in range(clip_num)]
-        # for i, clip in enumerate(frames_clips):
-        #     print(f"frames_clips[{i}] shape: {np.array(clip).shape}")
+        
+        # Creating chunks for confidences (same as frames)
+        confidences_clips = [confidences[i * chunk_length:(i + 1) * chunk_length] for i in range(clip_num)]
+        
+        # If video type is "face", process additional labels
         if video_type == "face":
             bvps_clips = [bvps[i * chunk_length:(i + 1) * chunk_length] for i in range(clip_num)]
             spo2_clips = [spo2[i * chunk_length:(i + 1) * chunk_length] for i in range(clip_num)]
-            rr_clips = [rr[i * chunk_length:(i + 1) * chunk_length] for i in range(clip_num)]  # 添加RR数据分块
-            return np.array(frames_clips), np.array(bvps_clips), np.array(spo2_clips), np.array(rr_clips)
+            rr_clips = [rr[i * chunk_length:(i + 1) * chunk_length] for i in range(clip_num)]  # Add RR data chunking
+            return np.array(frames_clips), np.array(bvps_clips), np.array(spo2_clips), np.array(rr_clips), np.array(confidences_clips)
         else:
-            return np.array(frames_clips), None, None, None
+            return np.array(frames_clips), None, None, None, np.array(confidences_clips)
 
 
     def save(self, frames_clips, bvps_clips, filename):
@@ -493,7 +529,8 @@ class BaseLoader(Dataset):
             count += 1
         return count
 
-    def save_multi_process(self, frames_clips, bvps_clips, spo2_clips, rr_clips, filename):
+    
+    def save_multi_process(self, frames_clips, bvps_clips, spo2_clips, rr_clips, confidences_clips, filename):
         """Save all the chunked data with multi-thread processing.
 
         Args:
@@ -501,12 +538,14 @@ class BaseLoader(Dataset):
             bvps_clips(np.array): blood volume pulse (PPG) labels
             spo2_clips(np.array): SpO2 values for each chunk
             rr_clips(np.array): respiratory rate (RR) values for each chunk
+            confidences_clips(np.array): confidence values for each chunk
             filename: name the filename
         Returns:
             input_path_name_list: list of input path names
             label_path_name_list: list of BVP label path names
             spo2_path_name_list: list of SpO2 label path names 
             rr_path_name_list: list of RR label path names
+            confidence_path_name_list: list of confidence path names
         """
         if not os.path.exists(self.cached_path):
             os.makedirs(self.cached_path, exist_ok=True)
@@ -515,30 +554,38 @@ class BaseLoader(Dataset):
         input_path_name_list = []
         label_path_name_list = []
         spo2_path_name_list = []
-        rr_path_name_list = []  # 新增RR路径列表
+        rr_path_name_list = []  # New RR path list
+        confidence_path_name_list = []  # New confidence path list
 
         for i in range(len(bvps_clips)):
             assert (len(self.inputs) == len(self.labels_bvp))
             assert (len(self.inputs) == len(self.labels_spo2))
             assert (len(self.inputs) == len(self.labels_rr))
+            
             input_path_name = os.path.join(self.cached_path, f"{filename}_face_input_{count}.npy")
             label_path_name = os.path.join(self.cached_path, f"{filename}_hr_{count}.npy")
             spo2_path_name = os.path.join(self.cached_path, f"{filename}_spo2_{count}.npy")
-            rr_path_name = os.path.join(self.cached_path, f"{filename}_rr_{count}.npy")  # 新增RR文件路径
+            rr_path_name = os.path.join(self.cached_path, f"{filename}_rr_{count}.npy")  # RR file path
+            confidence_path_name = os.path.join(self.cached_path, f"{filename}_confidence_{count}.npy")  # Confidence file path
             
             input_path_name_list.append(input_path_name)
             label_path_name_list.append(label_path_name)
             spo2_path_name_list.append(spo2_path_name)
-            rr_path_name_list.append(rr_path_name)  # 添加RR路径
+            rr_path_name_list.append(rr_path_name)  # Adding RR path
+            confidence_path_name_list.append(confidence_path_name)  # Adding confidence path
             
+            # Save the corresponding data
             np.save(input_path_name, frames_clips[i])
             np.save(label_path_name, bvps_clips[i])
             np.save(spo2_path_name, spo2_clips[i])
-            np.save(rr_path_name, rr_clips[i])  # 保存RR数据
+            np.save(rr_path_name, rr_clips[i])  # Save RR data
+            np.save(confidence_path_name, confidences_clips[i])  # Save confidence data
             
             count += 1
         
-        return input_path_name_list, label_path_name_list, spo2_path_name_list, rr_path_name_list
+        # Return the paths for all saved files
+        return input_path_name_list, label_path_name_list, spo2_path_name_list, rr_path_name_list, confidence_path_name_list
+
 
     def multi_process_manager(self, data_dirs, config_preprocess, multi_process_quota=8):
         """Allocate dataset preprocessing across multiple processes.
