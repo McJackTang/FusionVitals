@@ -208,25 +208,26 @@ class HealthMonitoringSLoader_jz(BaseLoader):
         if experiment_id=='Camera2':
             print("experiment_id=='Camera2'")
             print(f"video_file: {video_file}")
-            frames_clips, bvps_clips, spo2_clips, rr_clips = self.preprocess(frames, bvps, spo2, rr, config_preprocess, "face", name_id, subject_id, experiment_id)
+            frames_clips, bvps_clips, spo2_clips, rr_clips, confidences_clips = self.preprocess(frames, bvps, spo2, rr, config_preprocess, "face", name_id, subject_id, experiment_id)
             print(f"face Frames clips shape: {frames_clips.shape}")
             print(f"BVP clips shape: {bvps_clips.shape}")
             print(f"SpO2 clips shape: {spo2_clips.shape}")
             print(f"RR clips shape: {rr_clips.shape}")
+            print(f"confidences_clips shape: {confidences_clips.shape}")
             
             filename = f"{name_id}_{subject_id}_{experiment_id}"
-            input_name_list, label_name_list, spo2_name_list, rr_name_list = self.save_multi_process(frames_clips, bvps_clips, spo2_clips, rr_clips, filename)
+            input_name_list, label_name_list, spo2_name_list, rr_name_list, confidence_path_name_list = self.save_multi_process(frames_clips, bvps_clips, spo2_clips, rr_clips, confidences_clips, filename)
             file_list_dict[i] = input_name_list
         else:
             print("experiment_id=='Camera1'")
-            frames_clips, _, _, _ = self.preprocess(frames, None, None, None, config_preprocess, "face_IR", name_id, subject_id, experiment_id) 
+            frames_clips, _, _, _, confidences_clips = self.preprocess(frames, None, None, None, config_preprocess, "face_IR", name_id, subject_id, experiment_id) 
             # print(f"finger Frames clips shape: {frames_clips.shape}"
             # print(f"face Frames clips shape: {frames_clips.shape}")
             # print(f"BVP clips shape: {bvps_clips.shape}")
             # print(f"SpO2 clips shape: {spo2_clips.shape}")
             # print(f"RR clips shape: {rr_clips.shape}")            
             filename = f"{name_id}_{subject_id}_{experiment_id}_IR"
-            input_name_list = self.save_multi_process_no_labels(frames_clips, filename)
+            input_name_list, confidence_path_name_list = self.save_multi_process_no_labels(frames_clips, confidences_clips, filename)
             file_list_dict[i] = input_name_list
 
     def load_preprocessed_data(self):
@@ -246,7 +247,7 @@ class HealthMonitoringSLoader_jz(BaseLoader):
         for each_input in inputs_temp:
             #print(f"each_input: {each_input}")
             info = each_input.split(os.sep)[-1].split('_')
-            print("info=",info)
+            # print("info=",info)
             state = int(info[2][-1])
             # print("state=",state)
             #print(f"state: {state}")
@@ -259,6 +260,7 @@ class HealthMonitoringSLoader_jz(BaseLoader):
 
             if (state in self.info.STATE) and (type in self.info.TYPE) and type == 2:
                 inputs_face.append(each_input)
+                # print("state=",state)
                 # print(f"each_input: {each_input}")
             # finger 2
             if (state in self.info.STATE) and (type in self.info.TYPE) and type == 1:
@@ -305,9 +307,11 @@ class HealthMonitoringSLoader_jz(BaseLoader):
             self.labels_rr = labels_rr
             # Mixed training also only requires one of the lengths
             self.preprocessed_data_len = len(inputs_face)   
-            # print(f"inputs_face: {inputs_face[20]}")
-            # print(f"inputs_face_IR: {inputs_face_IR[20]}")
-
+            print(f"inputs_face: {inputs_face[20]}")
+            print(f"inputs_face_IR: {inputs_face_IR[20]}")
+            print(f"labels_bvp: {labels_bvp[20]}")
+            print(f"labels_spo2: {labels_spo2[20]}")
+            print(f"labels_rr: {labels_rr[20]}")
             
 
     @staticmethod
@@ -360,27 +364,56 @@ class HealthMonitoringSLoader_jz(BaseLoader):
             success, frame = VidObj.read()
         return np.array(frames)
 
+    def save_comparison_images(self, frames, confidences, name_id, subject_id, experiment_id):
+        # 采样28张图片
+        num_frames = len(frames)
+        sample_indices = []
+        
+        # 每隔128帧采样，最多采28个样本
+        for i in range(28):
+            index = i * 128
+            if index < num_frames:
+                sample_indices.append(index)
+            else:
+                sample_indices.append(num_frames - 1)  # 如果没有足够的帧，则用最后一帧
+        
+        # 设置4行7列的子图布局
+        fig, axes = plt.subplots(4, 7, figsize=(14, 8))
+        
+        # 遍历并绘制每一张图片
+        for i, ax in enumerate(axes.flat):
+            index = sample_indices[i]
+            
+            # 获取对应帧和置信度
+            frame = frames[index]
+            confidence = confidences[index]
+            
+            # 确保图像是8位无符号整数类型
+            if frame.dtype == 'float64':
+                frame = cv2.convertScaleAbs(frame)
+
+            # 将图像转为RGB格式，matplotlib需要RGB而非BGR
+            ax.imshow(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+            ax.set_title(f'Confidence: {confidence:.2f}')
+            ax.axis('off')
+
+        # 调整子图之间的间距
+        plt.tight_layout()
+
+        # 存储图像
+        comparison_image_path = f"/data01/jz/rppg_tool_HMS/result/frame_crop_RF/{name_id}_{subject_id}_{experiment_id}_frame_comparison.png"
+        plt.savefig(comparison_image_path)
+        plt.close()
+
+
     def preprocess(self, frames, bvps, spo2, rr, config_preprocess, video_type, name_id, subject_id, experiment_id):
         """Preprocesses a pair of data."""
-        # if video_type == "face":
-        #     DO_CROP_FACE = True
-        # else:
-        #     DO_CROP_FACE = False
         DO_CROP_FACE = True
         # 获取第一帧用于保存裁剪前后的图像
-        first_frame = frames[0]
-        f150_frame = frames[150]
-        # if bvps is None:
-        #     print("bvps_clips is None. Please ensure the data is loaded correctly.")
-        # if spo2 is None:
-        #     print("spo2_clips is None. Please ensure the data is loaded correctly.")    
-        # if rr is None:
-        #     print("rr_clips is None. Please ensure the data is loaded correctly.")   
-        # 获取原始图像并保存
-        # original_image_path = f"/data01/jz/rppg_tool_HMS/result/frame_crop/{name_id}_{subject_id}_original_first_frame.png"
-        # cv2.imwrite(original_image_path, first_frame)
+        # first_frame = frames[0]
+        # f150_frame = frames[150]
 
-        frames = self.crop_face_resize(
+        frames, confidences = self.crop_face_resize(
             frames,
             DO_CROP_FACE,
             config_preprocess.CROP_FACE.BACKEND,
@@ -392,59 +425,9 @@ class HealthMonitoringSLoader_jz(BaseLoader):
             config_preprocess.RESIZE.W,
             config_preprocess.RESIZE.H)
         
-        # 获取裁剪后的第一帧并保存
-        cropped_first_frame = frames[0]
-        cropped_f150_frame = frames[150]
-        # cropped_image_path = f"/data01/jz/rppg_tool_HMS/result/frame_crop/{name_id}_{subject_id}_cropped_first_frame.png"
-        # cv2.imwrite(cropped_image_path, cropped_first_frame)
-        # 确保图像是8位无符号整数类型
-        if cropped_first_frame.dtype == 'float64':
-            cropped_first_frame = cv2.convertScaleAbs(cropped_first_frame)
-        if cropped_f150_frame.dtype == 'float64':
-            cropped_f150_frame = cv2.convertScaleAbs(cropped_f150_frame)
-        # 显示裁剪前后的图像进行对比
-        plt.figure(figsize=(12, 8))
+        # 调用 save_comparison_images 函数，保存裁剪前后的对比图
+        self.save_comparison_images(frames, confidences, name_id, subject_id, experiment_id)
 
-        # 原始图像
-        plt.subplot(1, 2, 1)
-        plt.imshow(cv2.cvtColor(first_frame, cv2.COLOR_BGR2RGB))
-        plt.title('Original First Frame')
-        plt.axis('off')
-
-        # 裁剪后的图像
-        plt.subplot(1, 2, 2)
-        plt.imshow(cv2.cvtColor(cropped_first_frame, cv2.COLOR_BGR2RGB))
-        plt.title('Cropped First Frame')
-        plt.axis('off')
-
-        # 保存图像
-        comparison_image_path = f"/data01/jz/rppg_tool_HMS/result/frame_crop_RF/{name_id}_{subject_id}_{experiment_id}_first_frame_comparison.png"
-        plt.tight_layout()
-        plt.savefig(comparison_image_path)
-        plt.close()
-        
-        ####存储150帧对比图
-        # 显示裁剪前后的图像进行对比
-        plt.figure(figsize=(12, 8))
-
-        # 原始图像
-        plt.subplot(1, 2, 1)
-        plt.imshow(cv2.cvtColor(f150_frame, cv2.COLOR_BGR2RGB))
-        plt.title('Original 150 Frame')
-        plt.axis('off')
-
-        # 裁剪后的图像
-        plt.subplot(1, 2, 2)
-        plt.imshow(cv2.cvtColor(cropped_f150_frame, cv2.COLOR_BGR2RGB))
-        plt.title('Cropped 150 Frame')
-        plt.axis('off')
-
-        # 保存图像
-        comparison_image_path = f"/data01/jz/rppg_tool_HMS/result/frame_crop_RF/{name_id}_{subject_id}_{experiment_id}_150_frame_comparison.png"
-        plt.tight_layout()
-        plt.savefig(comparison_image_path)
-        plt.close()
-                
 
         data = list()
         for data_type in config_preprocess.DATA_TYPE:
@@ -472,37 +455,45 @@ class HealthMonitoringSLoader_jz(BaseLoader):
                 raise ValueError("Unsupported label type!")
  
             if config_preprocess.DO_CHUNK:
-                frames_clips, bvps_clips, spo2_clips, rr_clips = self.chunk(data, bvps, spo2, rr, config_preprocess.CHUNK_LENGTH, video_type)
+                frames_clips, bvps_clips, spo2_clips, rr_clips, confidences_clips = self.chunk(data, bvps, spo2, rr, confidences, config_preprocess.CHUNK_LENGTH, video_type)
             else:
                 frames_clips = np.array([data])
                 bvps_clips = np.array([bvps])
                 spo2_clips = np.array([spo2])
                 rr_clips = np.array([rr])
 
-            return frames_clips, bvps_clips, spo2_clips, rr_clips
+            return frames_clips, bvps_clips, spo2_clips, rr_clips, confidences_clips
         else:
             if config_preprocess.DO_CHUNK:
-                frames_clips, _, _, _ = self.chunk(data, None, None, None, config_preprocess.CHUNK_LENGTH, video_type)
+                frames_clips, _, _, _, confidences_clips = self.chunk(data, None, None, None, confidences, config_preprocess.CHUNK_LENGTH, video_type)
             else:
                 frames_clips = np.array([data])
 
-            return frames_clips, None, None, None
+            return frames_clips, None, None, None, confidences_clips
 
-    def save_multi_process_no_labels(self, frames_clips, filename):
+    def save_multi_process_no_labels(self, frames_clips, confidence_clips, filename):
         """Save all the chunked data with multi-thread processing (no labels for finger)."""
         if not os.path.exists(self.cached_path):
             os.makedirs(self.cached_path, exist_ok=True)
 
         count = 0
         input_path_name_list = []
+        confidence_path_name_list = []  # 新增置信度路径列表
 
         for i in range(len(frames_clips)):
             input_path_name = os.path.join(self.cached_path, f"{filename}_input_{count}.npy")
+            confidence_path_name = os.path.join(self.cached_path, f"{filename}_confidence_{count}.npy")  # 置信度文件路径
+            
             input_path_name_list.append(input_path_name)
+            confidence_path_name_list.append(confidence_path_name)  # 添加到列表
+            
             np.save(input_path_name, frames_clips[i])
+            np.save(confidence_path_name, confidence_clips[i])  # 保存置信度数据
+            
             count += 1
 
-        return input_path_name_list
+        return input_path_name_list, confidence_path_name_list  # 返回两个列表
+
 
 def plot_all(rr, rr_re):
  
