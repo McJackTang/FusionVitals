@@ -84,3 +84,78 @@ for prefix, file_group in grouped_files.items():
         print(f"保存图像: {save_path}")
     else:
         print(f"警告：文件组 {prefix} 的文件数不为28，跳过该组")
+
+
+####draw_npy_rr
+import numpy as np
+import matplotlib.pyplot as plt
+
+# 设置文件路径
+input_npy_file = '/data01/jz/test_HC/HMS_SizeW72_SizeH72_ClipLength128_DataTypeDiffNormalized_DataAugNone_LabelTypeDiffNormalized_Crop_faceTrue_BackendHC_Large_boxTrue_Large_size1.5_Dyamic_DetFalse_det_len32_Median_face_boxFalse/mirror_zyw_03_Camera2_rr_27.npy'
+output_png_file = '/data01/jz/rppg_tool_HMS/result/draw_npy_rr/zyw_03_Camera2_rr_27.png'
+
+# 加载 .npy 文件中的数据
+data = np.load(input_npy_file)
+
+# 检查数据的形状
+print(f"Loaded data shape: {data.shape}")
+
+# 创建绘图
+plt.figure(figsize=(10, 6))
+
+# 绘制数据
+plt.plot(data, label='RR Signal')
+
+# 添加标题和标签
+plt.title("RR Signal from mirror_zyw_03_Camera2_rr_27.npy")
+plt.xlabel("Time (samples)")
+plt.ylabel("RR Signal Value")
+
+# 显示网格
+plt.grid(True)
+
+# 保存绘制的图像
+plt.savefig(output_png_file)
+
+# 显示图像（可选）
+# plt.show()
+
+print(f"Plot saved to {output_png_file}")
+
+
+####read_npy.py
+###读取npy文件并显示其内容大小
+import os
+import numpy as np
+
+def get_file_structure_and_shapes(root_dir):
+    """
+    Recursively traverse the directory and print the structure and shape of each .npy file.
+
+    :param root_dir: Root directory to start the traversal.
+    """
+    # Check if the directory exists
+    if not os.path.exists(root_dir):
+        print(f"Directory {root_dir} does not exist!")
+        return
+
+    # Recursively walk through the directory
+    for dirpath, dirnames, filenames in os.walk(root_dir):
+        print(f"Directory: {dirpath}")
+        for filename in filenames:
+            if filename.endswith('.npy'):
+                # Construct the full path of the file
+                file_path = os.path.join(dirpath, filename)
+                try:
+                    # Load the numpy file and print its shape
+                    data = np.load(file_path)
+                    print(f"  File: {file_path}, Shape: {data.shape}")
+                except Exception as e:
+                    print(f"  Error loading {file_path}: {e}")
+
+# The path to the folder you mentioned
+root_directory = '/data01/mxl/train/HMS_SizeW72_SizeH72_ClipLength128_DataTypeDiffNormalized_DataAugNone_LabelTypeDiffNormalized_Crop_faceTrue_BackendHC_Large_boxTrue_Large_size1.5_Dyamic_DetFalse_det_len32_Median_face_boxFalse'
+
+# Call the function to start checking the file structure
+get_file_structure_and_shapes(root_directory)
+
