@@ -60,7 +60,7 @@ class BaseTrainer:
             os.makedirs(output_dir, exist_ok=True)
 
         # Filename ID to be used in plots that get saved
-        if config.TOOLBOX_MODE == 'train_and_test':
+        if config.TOOLBOX_MODE == 'train_and_test' or config.TOOLBOX_MODE == 'train_and_test_LOO':
             filename_id = self.model_file_name
         else:
             raise ValueError('Metrics.py evaluation only supports train_and_test and only_test!')
