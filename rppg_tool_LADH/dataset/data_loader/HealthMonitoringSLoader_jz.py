@@ -300,18 +300,29 @@ class HealthMonitoringSLoader_jz(BaseLoader):
             labels_bvp = [input_file.replace("face_input", "hr") for input_file in inputs_face]  
             labels_spo2 = [input_file.replace("face_input", "spo2") for input_file in inputs_face]
             labels_rr = [input_file.replace("face_input", "rr") for input_file in inputs_face]  
+            
+            labels_IR_confidence = [input_file.replace("Camera2_face_input", "Camera1_IR_confidence") for input_file in inputs_face] 
+            labels_RGB_confidence = [input_file.replace("face_input", "confidence") for input_file in inputs_face] 
             self.inputs = inputs_face
             self.inputs_face_IR = inputs_face_IR
             self.labels_bvp = labels_bvp
             self.labels_spo2 = labels_spo2
             self.labels_rr = labels_rr
+            self.labels_IR_confidence = labels_IR_confidence
+            self.labels_RGB_confidence = labels_RGB_confidence
             # Mixed training also only requires one of the lengths
             self.preprocessed_data_len = len(inputs_face)   
-            print(f"inputs_face: {inputs_face[20]}")
-            print(f"inputs_face_IR: {inputs_face_IR[20]}")
-            print(f"labels_bvp: {labels_bvp[20]}")
-            print(f"labels_spo2: {labels_spo2[20]}")
-            print(f"labels_rr: {labels_rr[20]}")
+            # print(f"inputs_face: {inputs_face[20]}")
+            # print(f"inputs_face_IR: {inputs_face_IR[20]}")
+            # print(f"labels_bvp: {labels_bvp[20]}")
+            # print(f"labels_spo2: {labels_spo2[20]}")
+            # print(f"labels_rr: {labels_rr[20]}")
+            # print(f"labels_IR_confidence: {labels_IR_confidence[20]}")
+            # print("len(labels_bvp)",len(labels_bvp))
+            # print("len(labels_spo2)",len(labels_spo2))
+            # print("len(labels_rr)",len(labels_rr))
+            # print("labels_IR_confidence",len(labels_IR_confidence))
+            # print("labels_rr=",labels_rr)
             
 
     @staticmethod
