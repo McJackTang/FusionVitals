@@ -34,7 +34,10 @@ def read_hr_label(feed_dict, index):
 
 def _reform_data_from_dict(data, flatten=True):
     """Helper func for calculate metrics: reformat predictions and labels from dicts. """
-    sort_data = sorted(data.items(), key=lambda x: x[0])
+    sort_data = sorted(data.items(), key=lambda x: int(x[0]))
+    # print("Sorted key-value pairs:")
+    # for key, value in sort_data:
+    #     print(f"Key: {key}")    
     sort_data = [i[1] for i in sort_data]
     sort_data = torch.cat(sort_data, dim=0)
 
@@ -46,7 +49,8 @@ def _reform_data_from_dict(data, flatten=True):
     return sort_data
 
 
-def calculate_metrics3333(predictions, labels, config, datatype):
+
+def calculate_metrics(predictions, labels, config, datatype, LOO_id=None):
     """Calculate rPPG Metrics (MAE, RMSE, MAPE, Pearson Coef.)."""
     predict_hr_fft_all = list()
     gt_hr_fft_all = list()
@@ -55,267 +59,21 @@ def calculate_metrics3333(predictions, labels, config, datatype):
     SNR_all = list()
     MACC_all = list()
     print(f"{datatype} ----------------- Calculating metrics!")
+    user_name_pre = None
+    predict_hr_pre = None
+    threshold = [10,15,30,60,120]
+    change_time = 0
     for index in tqdm(predictions.keys(), ncols=80):
+        print("index=", index)
+        parts = index.split("_")  # 将字符串按 "_" 分割成列表
+        if len(parts) >= 2:
+            user_name = parts[1]
+            print("user_name:", user_name)
+
         prediction = _reform_data_from_dict(predictions[index])
         label = _reform_data_from_dict(labels[index])
 
-        video_frame_size = prediction.shape[0]
-        if config.INFERENCE.EVALUATION_WINDOW.USE_SMALLER_WINDOW:
-            window_frame_size = config.INFERENCE.EVALUATION_WINDOW.WINDOW_SIZE * config.TEST.DATA.FS
-            if window_frame_size > video_frame_size:
-                window_frame_size = video_frame_size
-        else:
-            window_frame_size = video_frame_size
-
-        for i in range(0, len(prediction), window_frame_size):
-            pred_window = prediction[i:i+window_frame_size]
-            label_window = label[i:i+window_frame_size]
-
-            if len(pred_window) < 9:
-                print(f"Window frame size of {len(pred_window)} is smaller than minimum pad length of 9. Window ignored!")
-                continue
-
-            if config.TEST.DATA.PREPROCESS.LABEL_TYPE == "Standardized" or \
-                    config.TEST.DATA.PREPROCESS.LABEL_TYPE == "Raw":
-                diff_flag_test = False
-            elif config.TEST.DATA.PREPROCESS.LABEL_TYPE == "DiffNormalized":
-                diff_flag_test = True
-            else:
-                raise ValueError("Unsupported label type in testing!")
-            
-            if config.INFERENCE.EVALUATION_METHOD == "peak detection":
-                gt_hr_peak, pred_hr_peak, SNR, macc = calculate_metric_per_video(
-                    pred_window, label_window, diff_flag=diff_flag_test, fs=config.TEST.DATA.FS, hr_method='Peak')
-                gt_hr_peak_all.append(gt_hr_peak)
-                predict_hr_peak_all.append(pred_hr_peak)
-                if datatype == "rppg":
-                    SNR_all.append(SNR)
-                MACC_all.append(macc)
-            elif config.INFERENCE.EVALUATION_METHOD == "FFT":
-                gt_hr_fft, pred_hr_fft, SNR, macc = calculate_metric_per_video(
-                    pred_window, label_window, diff_flag=diff_flag_test, fs=config.TEST.DATA.FS, hr_method='FFT', datatype=datatype)
-                gt_hr_fft_all.append(gt_hr_fft)
-                predict_hr_fft_all.append(pred_hr_fft)
-                if datatype == "rppg":
-                    SNR_all.append(SNR)
-                MACC_all.append(macc)
-            else:
-                raise ValueError("Inference evaluation method name wrong!")
-    
-    def to_numpy(x):
-        if isinstance(x, torch.Tensor):
-            return x.numpy()
-        return x
-
-    gt_hr_fft_all = np.array([to_numpy(tensor) for tensor in gt_hr_fft_all])
-    predict_hr_fft_all = np.array([to_numpy(tensor) for tensor in predict_hr_fft_all])
-    if datatype == "rppg":
-        SNR_all = np.array([to_numpy(tensor) for tensor in SNR_all])
-    MACC_all = np.array([to_numpy(tensor) for tensor in MACC_all])
-
-    # Filename ID to be used in any results files (e.g., Bland-Altman plots) that get saved
-    if config.TOOLBOX_MODE == 'train_and_test':
-        filename_id = config.TRAIN.MODEL_FILE_NAME
-    elif config.TOOLBOX_MODE == 'only_test':
-        model_file_root = config.INFERENCE.MODEL_PATH.split("/")[-1].split(".pth")[0]
-        filename_id = model_file_root + "_" + config.TEST.DATA.DATASET
-    else:
-        raise ValueError('Metrics.py evaluation only supports train_and_test and only_test!')
-
-    metrics_result = {}
-
-    if config.INFERENCE.EVALUATION_METHOD == "FFT":
-        num_test_samples = len(predict_hr_fft_all)
-        
-        # Convert predict_hr_fft_al and gt_hr_fft_all to 1D arrays where elements have unequal lengths
-        predict_hr_fft_all = [np.array(x, ndmin=1) for x in predict_hr_fft_all]
-        predict_hr_fft_all = np.concatenate(predict_hr_fft_all)
-        gt_hr_fft_all = [np.array(x, ndmin=1) for x in gt_hr_fft_all]
-        gt_hr_fft_all = np.concatenate(gt_hr_fft_all)
-    
-        for metric in config.TEST.METRICS:
-            if metric == "MAE":
-                MAE_FFT = np.mean(np.abs(predict_hr_fft_all - gt_hr_fft_all))
-                MAE_STD = np.std(np.abs(predict_hr_fft_all - gt_hr_fft_all)) / np.sqrt(num_test_samples)
-                metrics_result["FFT_MAE"] = (MAE_FFT, MAE_STD)
-                print("FFT MAE (FFT Label): {0} +/- {1}".format(MAE_FFT, MAE_STD))
-            elif metric == "RMSE":
-                RMSE_FFT = np.sqrt(np.mean(np.square(predict_hr_fft_all - gt_hr_fft_all)))
-                RMSE_STD = np.std(np.square(predict_hr_fft_all - gt_hr_fft_all)) / np.sqrt(num_test_samples)
-                metrics_result["FFT_RMSE"] = (RMSE_FFT, RMSE_STD)
-                print("FFT RMSE (FFT Label): {0} +/- {1}".format(RMSE_FFT, RMSE_STD))
-            elif metric == "MAPE":
-                MAPE_FFT = np.mean(np.abs((predict_hr_fft_all - gt_hr_fft_all) / gt_hr_fft_all)) * 100
-                MAPE_STD = np.std(np.abs((predict_hr_fft_all - gt_hr_fft_all) / gt_hr_fft_all)) / np.sqrt(num_test_samples) * 100
-                metrics_result["FFT_MAPE"] = (MAPE_FFT, MAPE_STD)
-                print("FFT MAPE (FFT Label): {0} +/- {1}".format(MAPE_FFT, MAPE_STD))
-            elif metric == "Pearson":
-                Pearson_FFT = np.corrcoef(predict_hr_fft_all, gt_hr_fft_all)
-                correlation_coefficient = Pearson_FFT[0][1]
-                Pearson_STD = np.sqrt((1 - correlation_coefficient**2) / (num_test_samples - 2))
-                metrics_result["FFT_Pearson"] = (correlation_coefficient, Pearson_STD)
-                print("FFT Pearson (FFT Label): {0} +/- {1}".format(correlation_coefficient, Pearson_STD))
-            elif metric == "SNR" and datatype == "rppg":
-                if len(SNR_all) > 0:
-                    SNR_FFT = np.mean(SNR_all)
-                    SNR_STD = np.std(SNR_all) / np.sqrt(num_test_samples)
-                    metrics_result["FFT_SNR"] = (SNR_FFT, SNR_STD)
-                    print("FFT SNR (FFT Label): {0} +/- {1} (dB)".format(SNR_FFT, SNR_STD))
-                else:
-                    print("FFT SNR (FFT Label): No valid SNR values")
-            elif metric == "MACC":
-                MACC_avg = np.mean(MACC_all)
-                MACC_STD = np.std(MACC_all) / np.sqrt(num_test_samples)
-                metrics_result["MACC"] = (MACC_avg, MACC_STD)
-                print("MACC: {0} +/- {1}".format(MACC_avg, MACC_STD))
-            elif "AU" in metric:
-                pass
-            elif "BA" in metric:
-                # make sure the data passed to BlandAltman is one-dimensional
-                gt_hr_fft_all_flat = gt_hr_fft_all.flatten()
-                predict_hr_fft_all_flat = predict_hr_fft_all.flatten()
-                try:
-                    compare = BlandAltman(gt_hr_fft_all_flat, predict_hr_fft_all_flat, config, averaged=True)
-                    if datatype == "rppg":
-                        compare.scatter_plot(
-                            x_label='GT PPG HR [bpm]',
-                            y_label='rPPG HR [bpm]',
-                            show_legend=True, figure_size=(5, 5),
-                            the_title=f'{filename_id}_FFT_BlandAltman_ScatterPlot_HR',
-                            file_name=f'{filename_id}_FFT_BlandAltman_ScatterPlot_HR.pdf')
-                        compare.difference_plot(
-                            x_label='Difference between rPPG HR and GT PPG HR [bpm]',
-                            y_label='Average of rPPG HR and GT PPG HR [bpm]',
-                            show_legend=True, figure_size=(5, 5),
-                            the_title=f'{filename_id}_FFT_BlandAltman_DifferencePlot_HR',
-                            file_name=f'{filename_id}_FFT_BlandAltman_DifferencePlot_HR.pdf')
-                    elif datatype == "spo2":
-                        compare.scatter_plot(
-                            x_label='GT SPO2 [%]',
-                            y_label='Predicted SPO2 [%]',
-                            show_legend=True, figure_size=(5, 5),
-                            the_title=f'{filename_id}_FFT_BlandAltman_ScatterPlot_SPO2',
-                            file_name=f'{filename_id}_FFT_BlandAltman_ScatterPlot_SPO2.pdf',
-                            measure_lower_lim=85, measure_upper_lim=100)
-                        compare.difference_plot(
-                            x_label='Difference between Predicted SPO2 and GT SPO2 [%]',
-                            y_label='Average of Predicted SPO2 and GT SPO2 [%]',
-                            show_legend=True, figure_size=(5, 5),
-                            the_title=f'{filename_id}_FFT_BlandAltman_DifferencePlot_SPO2',
-                            file_name=f'{filename_id}_FFT_BlandAltman_DifferencePlot_SPO2.pdf')
-                except np.linalg.LinAlgError:
-                    print("The data covariance matrix is ​​singular and a Gaussian kernel density estimate cannot be computed.")
-            else:
-                if metric == "SNR":
-                    print(f"Skipping SNR for datatype {datatype}.")
-                    continue
-                print(f"Unexpected metric type: {metric}")
-                raise ValueError("Wrong Test Metric Type")
-    elif config.INFERENCE.EVALUATION_METHOD == "peak detection":
-        gt_hr_peak_all = np.array([to_numpy(tensor) for tensor in gt_hr_peak_all])
-        predict_hr_peak_all = np.array([to_numpy(tensor) for tensor in predict_hr_peak_all])
-        if datatype == "rppg":
-            SNR_all = np.array([to_numpy(tensor) for tensor in SNR_all])
-        MACC_all = np.array([to_numpy(tensor) for tensor in MACC_all])
-        
-        num_test_samples = len(predict_hr_peak_all)
-        for metric in config.TEST.METRICS:
-            if metric == "MAE":
-                MAE_PEAK = np.mean(np.abs(predict_hr_peak_all - gt_hr_peak_all))
-                MAE_STD = np.std(np.abs(predict_hr_peak_all - gt_hr_peak_all)) / np.sqrt(num_test_samples)
-                metrics_result["PEAK_MAE"] = (MAE_PEAK, MAE_STD)
-                print("Peak MAE (Peak Label): {0} +/- {1}".format(MAE_PEAK, MAE_STD))
-            elif metric == "RMSE":
-                RMSE_PEAK = np.sqrt(np.mean(np.square(predict_hr_peak_all - gt_hr_peak_all)))
-                RMSE_STD = np.std(np.square(predict_hr_peak_all - gt_hr_peak_all)) / np.sqrt(num_test_samples)
-                metrics_result["PEAK_RMSE"] = (RMSE_PEAK, RMSE_STD)
-                print("PEAK RMSE (Peak Label): {0} +/- {1}".format(RMSE_PEAK, RMSE_STD))
-            elif metric == "MAPE":
-                MAPE_PEAK = np.mean(np.abs((predict_hr_peak_all - gt_hr_peak_all) / gt_hr_peak_all)) * 100
-                MAPE_STD = np.std(np.abs((predict_hr_peak_all - gt_hr_peak_all) / gt_hr_peak_all)) / np.sqrt(num_test_samples) * 100
-                metrics_result["PEAK_MAPE"] = (MAPE_PEAK, MAPE_STD)
-                print("PEAK MAPE (Peak Label): {0} +/- {1}".format(MAPE_PEAK, MAPE_STD))
-            elif metric == "Pearson":
-                Pearson_PEAK = np.corrcoef(predict_hr_peak_all, gt_hr_peak_all)
-                correlation_coefficient = Pearson_PEAK[0][1]
-                Pearson_STD = np.sqrt((1 - correlation_coefficient**2) / (num_test_samples - 2))
-                metrics_result["PEAK_Pearson"] = (correlation_coefficient, Pearson_STD)
-                print("PEAK Pearson (Peak Label): {0} +/- {1}".format(correlation_coefficient, Pearson_STD))
-            elif metric == "SNR" and datatype == "rppg":
-                if len(SNR_all) > 0:
-                    SNR_PEAK = np.mean(SNR_all)
-                    SNR_STD = np.std(SNR_all) / np.sqrt(num_test_samples)
-                    metrics_result["PEAK_SNR"] = (SNR_PEAK, SNR_STD)
-                    print("PEAK SNR (Peak Label): {0} +/- {1} (dB)".format(SNR_PEAK, SNR_STD))
-                else:
-                    print("PEAK SNR (Peak Label): No valid SNR values")
-            elif metric == "MACC":
-                MACC_avg = np.mean(MACC_all)
-                MACC_STD = np.std(MACC_all) / np.sqrt(num_test_samples)
-                metrics_result["MACC"] = (MACC_avg, MACC_STD)
-                print("MACC: {0} +/- {1}".format(MACC_avg, MACC_STD))
-            elif "AU" in metric:
-                pass
-            elif "BA" in metric:
-                gt_hr_peak_all_flat = gt_hr_peak_all.flatten()
-                predict_hr_peak_all_flat = predict_hr_peak_all.flatten()
-                try:
-                    compare = BlandAltman(gt_hr_peak_all_flat, predict_hr_peak_all_flat, config, averaged=True)
-                    if datatype == "rppg":
-                        compare.scatter_plot(
-                            x_label='GT PPG HR [bpm]',
-                            y_label='rPPG HR [bpm]',
-                            show_legend=True, figure_size=(5, 5),
-                            the_title=f'{filename_id}_Peak_BlandAltman_ScatterPlot_HR',
-                            file_name=f'{filename_id}_Peak_BlandAltman_ScatterPlot_HR.pdf')
-                        compare.difference_plot(
-                            x_label='Difference between rPPG HR and GT PPG HR [bpm]',
-                            y_label='Average of rPPG HR and GT PPG HR [bpm]',
-                            show_legend=True, figure_size=(5, 5),
-                            the_title=f'{filename_id}_Peak_BlandAltman_DifferencePlot_HR',
-                            file_name=f'{filename_id}_Peak_BlandAltman_DifferencePlot_HR.pdf')
-                    elif datatype == "spo2":
-                        compare.scatter_plot(
-                            x_label='GT SPO2 [%]',
-                            y_label='Predicted SPO2 [%]',
-                            show_legend=True, figure_size=(5, 5),
-                            the_title=f'{filename_id}_Peak_BlandAltman_ScatterPlot_SPO2',
-                            file_name=f'{filename_id}_Peak_BlandAltman_ScatterPlot_SPO2.pdf')
-                        compare.difference_plot(
-                            x_label='Difference between Predicted SPO2 and GT SPO2 [%]',
-                            y_label='Average of Predicted SPO2 and GT SPO2 [%]',
-                            show_legend=True, figure_size=(5, 5),
-                            the_title=f'{filename_id}_Peak_BlandAltman_DifferencePlot_SPO2',
-                            file_name=f'{filename_id}_Peak_BlandAltman_DifferencePlot_SPO2.pdf') 
-                except np.linalg.LinAlgError:
-                    print("The data covariance matrix is ​​singular and a Gaussian kernel density estimate cannot be computed.")
-            else:
-                if metric == "SNR":
-                    print(f"Skipping SNR for datatype {datatype}.")
-                    continue
-                print(f"Unexpected metric type: {metric}")
-                raise ValueError("Wrong Test Metric Type")
-    else:
-        raise ValueError("Inference evaluation method name wrong!")
-
-    if datatype == "rppg":
-        return metrics_result["FFT_MAE"], metrics_result["FFT_RMSE"], metrics_result["FFT_MAPE"], metrics_result["FFT_Pearson"], metrics_result["FFT_SNR"]
-    else:
-        return metrics_result["FFT_MAE"], metrics_result["FFT_RMSE"], metrics_result["FFT_MAPE"], metrics_result["FFT_Pearson"]
-
-def calculate_metrics(predictions, labels, config, datatype):
-    """Calculate rPPG Metrics (MAE, RMSE, MAPE, Pearson Coef.)."""
-    predict_hr_fft_all = list()
-    gt_hr_fft_all = list()
-    predict_hr_peak_all = list()
-    gt_hr_peak_all = list()
-    SNR_all = list()
-    MACC_all = list()
-    print(f"{datatype} ----------------- Calculating metrics!")
-    for index in tqdm(predictions.keys(), ncols=80):
-        prediction = _reform_data_from_dict(predictions[index])
-        label = _reform_data_from_dict(labels[index])
-
+        print("prediction.shape[0]=",prediction.shape[0])
         video_frame_size = prediction.shape[0]
         #print(f"video_frame_size :{video_frame_size}")
         if config.INFERENCE.EVALUATION_WINDOW.USE_SMALLER_WINDOW:
@@ -326,6 +84,12 @@ def calculate_metrics(predictions, labels, config, datatype):
             window_frame_size = video_frame_size
 
         #print(f"window_frame_size :{window_frame_size}")
+        
+        if user_name_pre != None:
+            if user_name_pre!=user_name:
+                predict_hr_pre = None
+        use_name_pre = user_name
+
         for i in range(0, len(prediction), window_frame_size):
             pred_window = prediction[i:i+window_frame_size]
             label_window = label[i:i+window_frame_size]
@@ -345,15 +109,31 @@ def calculate_metrics(predictions, labels, config, datatype):
             
             if config.INFERENCE.EVALUATION_METHOD == "peak detection":
                 gt_hr_peak, pred_hr_peak, SNR, macc = calculate_metric_per_video(
-                    pred_window, label_window, diff_flag=diff_flag_test, fs=config.TEST.DATA.FS, hr_method='Peak')
+                    index, pred_window, label_window, diff_flag=diff_flag_test, fs=config.TEST.DATA.FS, hr_method='Peak')
                 gt_hr_peak_all.append(gt_hr_peak)
                 predict_hr_peak_all.append(pred_hr_peak)
                 if datatype == "rppg":
                     SNR_all.append(SNR)
                 MACC_all.append(macc)
             elif config.INFERENCE.EVALUATION_METHOD == "FFT":
+                # print("pred_window=",pred_window)
+                # print("pred_window.shape=",pred_window.shape)
                 gt_hr_fft, pred_hr_fft, SNR, macc = calculate_metric_per_video(
-                    pred_window, label_window, diff_flag=diff_flag_test, fs=config.TEST.DATA.FS, hr_method='FFT', datatype=datatype)
+                    index, i, pred_window, label_window, diff_flag=diff_flag_test, fs=config.TEST.DATA.FS, hr_method='FFT', datatype=datatype)
+                
+                if predict_hr_pre != None:
+                    if np.abs(predict_hr_pre - pred_hr_fft) > threshold[change_time]:
+                        pred_hr_fft = predict_hr_pre
+                        change_time = change_time+1
+                    else:
+                        change_time = 0
+                else:
+                    change_time = 0
+                    
+                predict_hr_pre = pred_hr_fft
+                print("pred_hr_fft =",pred_hr_fft)
+
+                
                 gt_hr_fft_all.append(gt_hr_fft)
                 predict_hr_fft_all.append(pred_hr_fft)
                 if datatype == "rppg":
@@ -377,7 +157,7 @@ def calculate_metrics(predictions, labels, config, datatype):
     MACC_all = np.array([to_numpy(tensor) for tensor in MACC_all])
 
     # Filename ID to be used in any results files (e.g., Bland-Altman plots) that get saved
-    if config.TOOLBOX_MODE == 'train_and_test':
+    if config.TOOLBOX_MODE == 'train_and_test' or config.TOOLBOX_MODE == 'train_and_test_LOO':
         filename_id = config.TRAIN.MODEL_FILE_NAME
     elif config.TOOLBOX_MODE == 'only_test':
         model_file_root = config.INFERENCE.MODEL_PATH.split("/")[-1].split(".pth")[0]
@@ -439,18 +219,32 @@ def calculate_metrics(predictions, labels, config, datatype):
                 try:
                     compare = BlandAltman(gt_hr_fft_all_flat, predict_hr_fft_all_flat, config, averaged=True)
                     if datatype == "rppg":
-                        compare.scatter_plot(
-                            x_label='GT PPG HR [bpm]',
-                            y_label='rPPG HR [bpm]',
-                            show_legend=True, figure_size=(5, 5),
-                            the_title=f'{filename_id}_FFT_BlandAltman_ScatterPlot_HR',
-                            file_name=f'{filename_id}_FFT_BlandAltman_ScatterPlot_HR.pdf')
-                        compare.difference_plot(
-                            x_label='Difference between rPPG HR and GT PPG HR [bpm]',
-                            y_label='Average of rPPG HR and GT PPG HR [bpm]',
-                            show_legend=True, figure_size=(5, 5),
-                            the_title=f'{filename_id}_FFT_BlandAltman_DifferencePlot_HR',
-                            file_name=f'{filename_id}_FFT_BlandAltman_DifferencePlot_HR.pdf')
+                        if  LOO_id==None:
+                            compare.scatter_plot(
+                                x_label='GT PPG HR [bpm]',
+                                y_label='rPPG HR [bpm]',
+                                show_legend=True, figure_size=(5, 5),
+                                the_title=f'{filename_id}_FFT_BlandAltman_ScatterPlot_HR',
+                                file_name=f'{filename_id}_FFT_BlandAltman_ScatterPlot_HR.pdf')
+                            compare.difference_plot(
+                                x_label='Difference between rPPG HR and GT PPG HR [bpm]',
+                                y_label='Average of rPPG HR and GT PPG HR [bpm]',
+                                show_legend=True, figure_size=(5, 5),
+                                the_title=f'{filename_id}_FFT_BlandAltman_DifferencePlot_HR',
+                                file_name=f'{filename_id}_FFT_BlandAltman_DifferencePlot_HR.pdf')
+                        else:
+                            compare.scatter_plot(
+                                x_label='GT PPG HR [bpm]',
+                                y_label='rPPG HR [bpm]',
+                                show_legend=True, figure_size=(5, 5),
+                                the_title=f'LOO_id{LOO_id}_{filename_id}_FFT_BlandAltman_ScatterPlot_HR',
+                                file_name=f'LOO_id{LOO_id}_{filename_id}_FFT_BlandAltman_ScatterPlot_HR.pdf')
+                            compare.difference_plot(
+                                x_label='Difference between rPPG HR and GT PPG HR [bpm]',
+                                y_label='Average of rPPG HR and GT PPG HR [bpm]',
+                                show_legend=True, figure_size=(5, 5),
+                                the_title=f'LOO_id{LOO_id}_{filename_id}_FFT_BlandAltman_DifferencePlot_HR',
+                                file_name=f'LOO_id{LOO_id}_{filename_id}_FFT_BlandAltman_DifferencePlot_HR.pdf')
                     elif datatype == "spo2":
                         compare.scatter_plot(
                             x_label='GT SPO2 [%]',
@@ -568,7 +362,293 @@ def calculate_metrics(predictions, labels, config, datatype):
 
     return result
 
-def calculate_metrics_RR(predictions, labels, config, datatype):
+
+
+def calculate_metrics_spo2(predictions, labels, config, datatype, LOO_id=None):
+    """Calculate spo2 Metrics (MAE, RMSE, MAPE, Pearson Coef.)."""
+    predict_hr_fft_all = list()
+    gt_hr_fft_all = list()
+    predict_hr_peak_all = list()
+    gt_hr_peak_all = list()
+    SNR_all = list()
+    MACC_all = list()
+    print(f"{datatype} ----------------- Calculating metrics!")
+    for index in tqdm(predictions.keys(), ncols=80):
+        prediction = _reform_data_from_dict(predictions[index])
+        label = _reform_data_from_dict(labels[index])
+
+        video_frame_size = prediction.shape[0]
+        #print(f"video_frame_size :{video_frame_size}")
+        if config.INFERENCE.EVALUATION_WINDOW.USE_SMALLER_WINDOW:
+            window_frame_size = config.INFERENCE.EVALUATION_WINDOW.WINDOW_SIZE * config.TEST.DATA.FS
+            if window_frame_size > video_frame_size:
+                window_frame_size = video_frame_size
+        else:
+            window_frame_size = video_frame_size
+
+        #print(f"window_frame_size :{window_frame_size}")
+        for i in range(0, len(prediction), window_frame_size):
+            pred_window = prediction[i:i+window_frame_size]
+            label_window = label[i:i+window_frame_size]
+
+            #print(f"pred_window :{pred_window}")
+            if len(pred_window) < 9:
+                print(f"Window frame size of {len(pred_window)} is smaller than minimum pad length of 9. Window ignored!")
+                continue
+
+            if config.TEST.DATA.PREPROCESS.LABEL_TYPE == "Standardized" or \
+                    config.TEST.DATA.PREPROCESS.LABEL_TYPE == "Raw":
+                diff_flag_test = False
+            elif config.TEST.DATA.PREPROCESS.LABEL_TYPE == "DiffNormalized":
+                diff_flag_test = True
+            else:
+                raise ValueError("Unsupported label type in testing!")
+            
+            if config.INFERENCE.EVALUATION_METHOD == "peak detection":
+                gt_hr_peak, pred_hr_peak, SNR, macc = calculate_metric_per_video_spo2(
+                    index, pred_window, label_window, diff_flag=diff_flag_test, fs=config.TEST.DATA.FS, hr_method='Peak')
+                gt_hr_peak_all.append(gt_hr_peak)
+                predict_hr_peak_all.append(pred_hr_peak)
+                if datatype == "rppg":
+                    SNR_all.append(SNR)
+                MACC_all.append(macc)
+            elif config.INFERENCE.EVALUATION_METHOD == "FFT":
+                # print("pred_window=",pred_window)
+                # print("pred_window.shape=",pred_window.shape)
+                gt_hr_fft, pred_hr_fft, SNR, macc = calculate_metric_per_video_spo2(
+                    index, pred_window, label_window, diff_flag=diff_flag_test, fs=config.TEST.DATA.FS, hr_method='FFT', datatype=datatype)
+                gt_hr_fft_all.append(gt_hr_fft)
+                predict_hr_fft_all.append(pred_hr_fft)
+                if datatype == "rppg":
+                    SNR_all.append(SNR)
+                MACC_all.append(macc)
+            else:
+                raise ValueError("Inference evaluation method name wrong!")
+    
+    def to_numpy(x):
+        if isinstance(x, torch.Tensor):
+            return x.numpy()
+        return x
+
+    # plot_rr_waveforms(predict_hr_fft_all, gt_hr_fft_all)
+    # gt_hr_fft_all = np.array([to_numpy(tensor) for tensor in gt_hr_fft_all], dtype=object)
+    # predict_hr_fft_all = np.array([to_numpy(tensor) for tensor in predict_hr_fft_all], dtype=object)
+    gt_hr_fft_all = np.array([to_numpy(tensor) for tensor in gt_hr_fft_all])
+    predict_hr_fft_all = np.array([to_numpy(tensor) for tensor in predict_hr_fft_all])
+    if datatype == "rppg":
+        SNR_all = np.array([to_numpy(tensor) for tensor in SNR_all])
+    MACC_all = np.array([to_numpy(tensor) for tensor in MACC_all])
+
+    # Filename ID to be used in any results files (e.g., Bland-Altman plots) that get saved
+    if config.TOOLBOX_MODE == 'train_and_test' or config.TOOLBOX_MODE == 'train_and_test_LOO':
+        filename_id = config.TRAIN.MODEL_FILE_NAME
+    elif config.TOOLBOX_MODE == 'only_test':
+        model_file_root = config.INFERENCE.MODEL_PATH.split("/")[-1].split(".pth")[0]
+        filename_id = model_file_root + "_" + config.TEST.DATA.DATASET
+    else:
+        raise ValueError('Metrics.py evaluation only supports train_and_test and only_test!')
+
+    metrics_result = {}
+
+    if config.INFERENCE.EVALUATION_METHOD == "FFT":
+        num_test_samples = len(predict_hr_fft_all)
+        
+        predict_hr_fft_all = [np.array(x, ndmin=1) for x in predict_hr_fft_all]
+        predict_hr_fft_all = np.concatenate(predict_hr_fft_all)
+        gt_hr_fft_all = [np.array(x, ndmin=1) for x in gt_hr_fft_all]
+        gt_hr_fft_all = np.concatenate(gt_hr_fft_all)
+    
+        for metric in config.TEST.METRICS:
+            if metric == "MAE":
+                MAE_FFT = np.mean(np.abs(predict_hr_fft_all - gt_hr_fft_all))
+                MAE_STD = np.std(np.abs(predict_hr_fft_all - gt_hr_fft_all)) / np.sqrt(num_test_samples)
+                metrics_result["FFT_MAE"] = (MAE_FFT, MAE_STD)
+                print("FFT MAE (FFT Label): {0} +/- {1}".format(MAE_FFT, MAE_STD))
+            elif metric == "RMSE":
+                RMSE_FFT = np.sqrt(np.mean(np.square(predict_hr_fft_all - gt_hr_fft_all)))
+                RMSE_STD = np.std(np.square(predict_hr_fft_all - gt_hr_fft_all)) / np.sqrt(num_test_samples)
+                metrics_result["FFT_RMSE"] = (RMSE_FFT, RMSE_STD)
+                print("FFT RMSE (FFT Label): {0} +/- {1}".format(RMSE_FFT, RMSE_STD))
+            elif metric == "MAPE":
+                MAPE_FFT = np.mean(np.abs((predict_hr_fft_all - gt_hr_fft_all) / gt_hr_fft_all)) * 100
+                MAPE_STD = np.std(np.abs((predict_hr_fft_all - gt_hr_fft_all) / gt_hr_fft_all)) / np.sqrt(num_test_samples) * 100
+                metrics_result["FFT_MAPE"] = (MAPE_FFT, MAPE_STD)
+                print("FFT MAPE (FFT Label): {0} +/- {1}".format(MAPE_FFT, MAPE_STD))
+            elif metric == "Pearson":
+                Pearson_FFT = np.corrcoef(predict_hr_fft_all, gt_hr_fft_all)
+                correlation_coefficient = Pearson_FFT[0][1]
+                Pearson_STD = np.sqrt((1 - correlation_coefficient**2) / (num_test_samples - 2))
+                metrics_result["FFT_Pearson"] = (correlation_coefficient, Pearson_STD)
+                print("FFT Pearson (FFT Label): {0} +/- {1}".format(correlation_coefficient, Pearson_STD))
+            elif metric == "SNR" and datatype == "rppg":
+                if len(SNR_all) > 0:
+                    SNR_FFT = np.mean(SNR_all)
+                    SNR_STD = np.std(SNR_all) / np.sqrt(num_test_samples)
+                    metrics_result["FFT_SNR"] = (SNR_FFT, SNR_STD)
+                    print("FFT SNR (FFT Label): {0} +/- {1} (dB)".format(SNR_FFT, SNR_STD))
+                else:
+                    print("FFT SNR (FFT Label): No valid SNR values")
+            elif metric == "MACC":
+                MACC_avg = np.mean(MACC_all)
+                MACC_STD = np.std(MACC_all) / np.sqrt(num_test_samples)
+                metrics_result["MACC"] = (MACC_avg, MACC_STD)
+                print("MACC: {0} +/- {1}".format(MACC_avg, MACC_STD))
+            elif "AU" in metric:
+                pass
+            elif "BA" in metric:
+
+                gt_hr_fft_all_flat = gt_hr_fft_all.flatten()
+                predict_hr_fft_all_flat = predict_hr_fft_all.flatten()
+                try:
+                    compare = BlandAltman(gt_hr_fft_all_flat, predict_hr_fft_all_flat, config, averaged=True)
+                    if datatype == "rppg":
+                        compare.scatter_plot(
+                            x_label='GT PPG HR [bpm]',
+                            y_label='rPPG HR [bpm]',
+                            show_legend=True, figure_size=(5, 5),
+                            the_title=f'{filename_id}_FFT_BlandAltman_ScatterPlot_HR',
+                            file_name=f'{filename_id}_FFT_BlandAltman_ScatterPlot_HR.pdf')
+                        compare.difference_plot(
+                            x_label='Difference between rPPG HR and GT PPG HR [bpm]',
+                            y_label='Average of rPPG HR and GT PPG HR [bpm]',
+                            show_legend=True, figure_size=(5, 5),
+                            the_title=f'{filename_id}_FFT_BlandAltman_DifferencePlot_HR',
+                            file_name=f'{filename_id}_FFT_BlandAltman_DifferencePlot_HR.pdf')
+                    elif datatype == "spo2":
+                        if LOO_id==None:
+                            compare.scatter_plot(
+                                x_label='GT SPO2 [%]',
+                                y_label='Predicted SPO2 [%]',
+                                show_legend=True, figure_size=(5, 5),
+                                the_title=f'{filename_id}_FFT_BlandAltman_ScatterPlot_SPO2',
+                                file_name=f'{filename_id}_FFT_BlandAltman_ScatterPlot_SPO2.pdf',
+                                measure_lower_lim=85, measure_upper_lim=100)
+                            compare.difference_plot(
+                                x_label='Difference between Predicted SPO2 and GT SPO2 [%]',
+                                y_label='Average of Predicted SPO2 and GT SPO2 [%]',
+                                show_legend=True, figure_size=(5, 5),
+                                the_title=f'{filename_id}_FFT_BlandAltman_DifferencePlot_SPO2',
+                                file_name=f'{filename_id}_FFT_BlandAltman_DifferencePlot_SPO2.pdf')
+                        else:
+                            compare.scatter_plot(
+                                x_label='GT SPO2 [%]',
+                                y_label='Predicted SPO2 [%]',
+                                show_legend=True, figure_size=(5, 5),
+                                the_title=f'LOO_id{LOO_id}_{filename_id}_FFT_BlandAltman_ScatterPlot_SPO2',
+                                file_name=f'LOO_id{LOO_id}_{filename_id}_FFT_BlandAltman_ScatterPlot_SPO2.pdf',
+                                measure_lower_lim=85, measure_upper_lim=100)
+                            compare.difference_plot(
+                                x_label='Difference between Predicted SPO2 and GT SPO2 [%]',
+                                y_label='Average of Predicted SPO2 and GT SPO2 [%]',
+                                show_legend=True, figure_size=(5, 5),
+                                the_title=f'LOO_id{LOO_id}_{filename_id}_FFT_BlandAltman_DifferencePlot_SPO2',
+                                file_name=f'LOO_id{LOO_id}_{filename_id}_FFT_BlandAltman_DifferencePlot_SPO2.pdf')
+                except np.linalg.LinAlgError:
+                    print("The data covariance matrix is ​​singular and a Gaussian kernel density estimate cannot be computed.")
+            else:
+                if metric == "SNR":
+                    print(f"Skipping SNR for datatype {datatype}.")
+                    continue
+                print(f"Unexpected metric type: {metric}")
+                raise ValueError("Wrong Test Metric Type")
+    elif config.INFERENCE.EVALUATION_METHOD == "peak detection":
+        gt_hr_peak_all = np.array([to_numpy(tensor) for tensor in gt_hr_peak_all])
+        predict_hr_peak_all = np.array([to_numpy(tensor) for tensor in predict_hr_peak_all])
+        if datatype == "rppg":
+            SNR_all = np.array([to_numpy(tensor) for tensor in SNR_all])
+        MACC_all = np.array([to_numpy(tensor) for tensor in MACC_all])
+        
+        num_test_samples = len(predict_hr_peak_all)
+        for metric in config.TEST.METRICS:
+            if metric == "MAE":
+                MAE_PEAK = np.mean(np.abs(predict_hr_peak_all - gt_hr_peak_all))
+                MAE_STD = np.std(np.abs(predict_hr_peak_all - gt_hr_peak_all)) / np.sqrt(num_test_samples)
+                metrics_result["PEAK_MAE"] = (MAE_PEAK, MAE_STD)
+                print("Peak MAE (Peak Label): {0} +/- {1}".format(MAE_PEAK, MAE_STD))
+            elif metric == "RMSE":
+                RMSE_PEAK = np.sqrt(np.mean(np.square(predict_hr_peak_all - gt_hr_peak_all)))
+                RMSE_STD = np.std(np.square(predict_hr_peak_all - gt_hr_peak_all)) / np.sqrt(num_test_samples)
+                metrics_result["PEAK_RMSE"] = (RMSE_PEAK, RMSE_STD)
+                print("PEAK RMSE (Peak Label): {0} +/- {1}".format(RMSE_PEAK, RMSE_STD))
+            elif metric == "MAPE":
+                MAPE_PEAK = np.mean(np.abs((predict_hr_peak_all - gt_hr_peak_all) / gt_hr_peak_all)) * 100
+                MAPE_STD = np.std(np.abs((predict_hr_peak_all - gt_hr_peak_all) / gt_hr_peak_all)) / np.sqrt(num_test_samples) * 100
+                metrics_result["PEAK_MAPE"] = (MAPE_PEAK, MAPE_STD)
+                print("PEAK MAPE (Peak Label): {0} +/- {1}".format(MAPE_PEAK, MAPE_STD))
+            elif metric == "Pearson":
+                Pearson_PEAK = np.corrcoef(predict_hr_peak_all, gt_hr_peak_all)
+                correlation_coefficient = Pearson_PEAK[0][1]
+                Pearson_STD = np.sqrt((1 - correlation_coefficient**2) / (num_test_samples - 2))
+                metrics_result["PEAK_Pearson"] = (correlation_coefficient, Pearson_STD)
+                print("PEAK Pearson (Peak Label): {0} +/- {1}".format(correlation_coefficient, Pearson_STD))
+            elif metric == "SNR" and datatype == "rppg":
+                if len(SNR_all) > 0:
+                    SNR_PEAK = np.mean(SNR_all)
+                    SNR_STD = np.std(SNR_all) / np.sqrt(num_test_samples)
+                    metrics_result["PEAK_SNR"] = (SNR_PEAK, SNR_STD)
+                    print("PEAK SNR (Peak Label): {0} +/- {1} (dB)".format(SNR_PEAK, SNR_STD))
+                else:
+                    print("PEAK SNR (Peak Label): No valid SNR values")
+            elif metric == "MACC":
+                MACC_avg = np.mean(MACC_all)
+                MACC_STD = np.std(MACC_all) / np.sqrt(num_test_samples)
+                metrics_result["MACC"] = (MACC_avg, MACC_STD)
+                print("MACC: {0} +/- {1}".format(MACC_avg, MACC_STD))
+            elif "AU" in metric:
+                pass
+            elif "BA" in metric:
+                gt_hr_peak_all_flat = gt_hr_peak_all.flatten()
+                predict_hr_peak_all_flat = predict_hr_peak_all.flatten()
+                try:
+                    compare = BlandAltman(gt_hr_peak_all_flat, predict_hr_peak_all_flat, config, averaged=True)
+                    if datatype == "rppg":
+                        compare.scatter_plot(
+                            x_label='GT PPG HR [bpm]',
+                            y_label='rPPG HR [bpm]',
+                            show_legend=True, figure_size=(5, 5),
+                            the_title=f'{filename_id}_Peak_BlandAltman_ScatterPlot_HR',
+                            file_name=f'{filename_id}_Peak_BlandAltman_ScatterPlot_HR.pdf')
+                        compare.difference_plot(
+                            x_label='Difference between rPPG HR and GT PPG HR [bpm]',
+                            y_label='Average of rPPG HR and GT PPG HR [bpm]',
+                            show_legend=True, figure_size=(5, 5),
+                            the_title=f'{filename_id}_Peak_BlandAltman_DifferencePlot_HR',
+                            file_name=f'{filename_id}_Peak_BlandAltman_DifferencePlot_HR.pdf')
+                    elif datatype == "spo2":
+                        compare.scatter_plot(
+                            x_label='GT SPO2 [%]',
+                            y_label='Predicted SPO2 [%]',
+                            show_legend=True, figure_size=(5, 5),
+                            the_title=f'{filename_id}_Peak_BlandAltman_ScatterPlot_SPO2',
+                            file_name=f'{filename_id}_Peak_BlandAltman_ScatterPlot_SPO2.pdf')
+                        compare.difference_plot(
+                            x_label='Difference between Predicted SPO2 and GT SPO2 [%]',
+                            y_label='Average of Predicted SPO2 and GT SPO2 [%]',
+                            show_legend=True, figure_size=(5, 5),
+                            the_title=f'{filename_id}_Peak_BlandAltman_DifferencePlot_SPO2',
+                            file_name=f'{filename_id}_Peak_BlandAltman_DifferencePlot_SPO2.pdf') 
+                except np.linalg.LinAlgError:
+                    print("The data covariance matrix is ​​singular and a Gaussian kernel density estimate cannot be computed.")
+            else:
+                if metric == "SNR":
+                    print(f"Skipping SNR for datatype {datatype}.")
+                    continue
+                print(f"Unexpected metric type: {metric}")
+                raise ValueError("Wrong Test Metric Type")
+    else:
+        raise ValueError("Inference evaluation method name wrong!")
+
+    # Create the result dictionary to return
+    result = {
+        "metrics": metrics_result,
+        "datatype": datatype
+    }
+
+    return result
+
+
+
+def calculate_metrics_RR(predictions, labels, config, datatype, LOO_id=None):
     """Calculate rPPG Metrics (MAE, RMSE, MAPE, Pearson Coef.)."""
     predict_rr_fft_all = list()
     gt_rr_fft_all = list()
@@ -578,14 +658,15 @@ def calculate_metrics_RR(predictions, labels, config, datatype):
     MACC_all = list()
     print(f"{datatype} ----------------- Calculating metrics!")
     # print(f"predictions: {predictions}")
-    # print(predictions.shape)
+    print("calculate_metrics_RR: predictions.shape",len(predictions))
     # print(f"labels: {labels}")
-    # print(labels.shape)
+    print("calculate_metrics_RR: labels.shape",len(labels))
     for index in tqdm(predictions.keys(), ncols=80):
+        # print("index=",index)
+        print(list(predictions.keys()))
+
         prediction = _reform_data_from_dict(predictions[index])
         label = _reform_data_from_dict(labels[index])
-        # print(f"prediction: {prediction}")
-        # print(f"label: {label}")
 
         video_frame_size = prediction.shape[0]
         # print(f"video_frame_size: {video_frame_size}")
@@ -600,6 +681,7 @@ def calculate_metrics_RR(predictions, labels, config, datatype):
         # print("len(prediction):")
         # print(len(prediction))
         for i in range(0, len(prediction), window_frame_size):
+            # print("i= ",i," window_frame_size= ",window_frame_size)
             pred_window = prediction[i:i+window_frame_size]
             label_window = label[i:i+window_frame_size]
 
@@ -621,7 +703,7 @@ def calculate_metrics_RR(predictions, labels, config, datatype):
             
             if config.INFERENCE.EVALUATION_METHOD == "peak detection":
                 gt_rr_peak, pred_rr_peak, SNR, macc = calculate_metric_per_video_rr(
-                    pred_window, label_window, diff_flag=diff_flag_test, fs=config.TEST.DATA.FS, hr_method='Peak')
+                    index, pred_window, label_window, diff_flag=diff_flag_test, fs=config.TEST.DATA.FS, hr_method='Peak')
                 gt_rr_peak_all.append(gt_rr_peak)
                 predict_rr_peak_all.append(pred_rr_peak)
                 if datatype == "rr":
@@ -630,10 +712,11 @@ def calculate_metrics_RR(predictions, labels, config, datatype):
             elif config.INFERENCE.EVALUATION_METHOD == "FFT":
                 # print(f"pred_window: {pred_window}")
                 # print(f"label_window: {label_window}")
+                # print("pred_window.shape",pred_window.shape)
                 plot_rr_window(pred_window, label_window)
                 plot_rr_waveforms(pred_window, label_window)
                 gt_rr_fft, pred_rr_fft, SNR, macc = calculate_metric_per_video_rr(
-                    pred_window, label_window, diff_flag=diff_flag_test, fs=config.TEST.DATA.FS, hr_method='FFT')
+                    index, pred_window, label_window, diff_flag=diff_flag_test, fs=config.TEST.DATA.FS, hr_method='FFT')
                 # print(f"gt_rr_fft: {gt_rr_fft}")
                 gt_rr_fft_all.append(gt_rr_fft)
                 predict_rr_fft_all.append(pred_rr_fft)
@@ -659,7 +742,7 @@ def calculate_metrics_RR(predictions, labels, config, datatype):
     MACC_all = np.array([to_numpy(tensor) for tensor in MACC_all])
 
     # Filename ID to be used in any results files (e.g., Bland-Altman plots) that get saved
-    if config.TOOLBOX_MODE == 'train_and_test':
+    if config.TOOLBOX_MODE == 'train_and_test' or config.TOOLBOX_MODE == 'train_and_test_LOO':
         filename_id = config.TRAIN.MODEL_FILE_NAME
     elif config.TOOLBOX_MODE == 'only_test':
         model_file_root = config.INFERENCE.MODEL_PATH.split("/")[-1].split(".pth")[0]
@@ -722,18 +805,32 @@ def calculate_metrics_RR(predictions, labels, config, datatype):
                 try:
                     compare = BlandAltman(gt_rr_fft_all_flat, predict_rr_fft_all_flat, config, averaged=True)
                     if datatype == "rr":
-                        compare.scatter_plot(
-                            x_label='GT PPG RR [bpm]',
-                            y_label='rPPG RR [bpm]',
-                            show_legend=True, figure_size=(5, 5),
-                            the_title=f'{filename_id}_FFT_BlandAltman_ScatterPlot_RR',
-                            file_name=f'{filename_id}_FFT_BlandAltman_ScatterPlot_RR.pdf')
-                        compare.difference_plot(
-                            x_label='Difference between rPPG RR and GT PPG RR [bpm]',
-                            y_label='Average of rPPG RR and GT PPG RR [bpm]',
-                            show_legend=True, figure_size=(5, 5),
-                            the_title=f'{filename_id}_FFT_BlandAltman_DifferencePlot_RR',
-                            file_name=f'{filename_id}_FFT_BlandAltman_DifferencePlot_RR.pdf')
+                        if LOO_id==None:
+                            compare.scatter_plot(
+                                x_label='GT PPG RR [bpm]',
+                                y_label='rPPG RR [bpm]',
+                                show_legend=True, figure_size=(5, 5),
+                                the_title=f'{filename_id}_FFT_BlandAltman_ScatterPlot_RR',
+                                file_name=f'{filename_id}_FFT_BlandAltman_ScatterPlot_RR.pdf')
+                            compare.difference_plot(
+                                x_label='Difference between rPPG RR and GT PPG RR [bpm]',
+                                y_label='Average of rPPG RR and GT PPG RR [bpm]',
+                                show_legend=True, figure_size=(5, 5),
+                                the_title=f'{filename_id}_FFT_BlandAltman_DifferencePlot_RR',
+                                file_name=f'{filename_id}_FFT_BlandAltman_DifferencePlot_RR.pdf')
+                        else:
+                            compare.scatter_plot(
+                                x_label='GT PPG RR [bpm]',
+                                y_label='rPPG RR [bpm]',
+                                show_legend=True, figure_size=(5, 5),
+                                the_title=f'{filename_id}_FFT_BlandAltman_ScatterPlot_RR',
+                                file_name=f'{filename_id}_FFT_BlandAltman_ScatterPlot_RR.pdf')
+                            compare.difference_plot(
+                                x_label='Difference between rPPG RR and GT PPG RR [bpm]',
+                                y_label='Average of rPPG RR and GT PPG RR [bpm]',
+                                show_legend=True, figure_size=(5, 5),
+                                the_title=f'LOO_id{LOO_id}_{filename_id}_FFT_BlandAltman_DifferencePlot_RR',
+                                file_name=f'LOO_id{LOO_id}_{filename_id}_FFT_BlandAltman_DifferencePlot_RR.pdf')
                     elif datatype == "spo2":
                         compare.scatter_plot(
                             x_label='GT SPO2 [%]',
@@ -925,15 +1022,3 @@ def plot_rr(rr_pred, rr_lable):
     plt.show()
 
 def plot_rr_waveforms(rr_pred, rr_label):
-
-    # Plotting
-    plt.figure(figsize=(20, 6))
-    plt.plot(rr_pred, label="Predicted RR", color='blue', linewidth=1.5)
-    plt.plot(rr_label, label="True RR", color='red', linewidth=1.5)
-    
-    plt.title("RR ")
-    plt.xlabel("number")
-    plt.ylabel("RR Rate")
-    plt.legend()
-    plt.savefig('/data01/jz/rppg_tool_HMS/result/tong_rr.png')
-    plt.show()
