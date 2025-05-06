@@ -55,6 +55,8 @@ class BaseLoader(Dataset):
         self.labels_bvp = list()
         self.labels_spo2 = list()
         self.labels_rr = list()  # 新增RR标签列表
+        self.labels_IR_confidence = list()
+        self.labels_RGB_confidence = list()
         self.dataset_name = dataset_name
         self.raw_data_path = raw_data_path
         self.cached_path = config_data.CACHED_PATH
@@ -63,6 +65,7 @@ class BaseLoader(Dataset):
         self.data_format = config_data.DATA_FORMAT
         self.do_preprocess = config_data.DO_PREPROCESS
         self.config_data = config_data
+        print("baseloader self.file_list_path=",self.file_list_path)
 
         assert (config_data.BEGIN < config_data.END)
         assert (config_data.BEGIN > 0 or config_data.BEGIN == 0)
@@ -88,6 +91,7 @@ class BaseLoader(Dataset):
         print('File List Path', self.file_list_path)
         print(f" {self.dataset_name} Preprocessed Dataset Length: {self.preprocessed_data_len}", end='\n\n')
 
+
     def __len__(self):
         """Returns the length of the dataset."""
         return len(self.inputs)
@@ -99,10 +103,14 @@ class BaseLoader(Dataset):
         label_bvp = np.load(self.labels_bvp[index])
         label_spo2 = np.load(self.labels_spo2[index])
         label_rr = np.load(self.labels_rr[index])
+        label_IR_confidence = np.load(self.labels_IR_confidence[index])
+        label_RGB_confidence = np.load(self.labels_RGB_confidence[index])
 
         label_bvp = np.float32(label_bvp)
         label_spo2 = np.float32(label_spo2)
         label_rr = np.float32(label_rr)
+        label_IR_confidence = np.float32(label_IR_confidence)
+        label_RGB_confidence = np.float32(label_RGB_confidence)
         # print(f"Loaded label_bvp label shape: {label_bvp.shape}, value: {label_bvp}")
         
         if label_spo2.ndim == 1:
@@ -120,7 +128,7 @@ class BaseLoader(Dataset):
             chunk_id = item_path_filename[split_idx + len('_input_'):].split('.')[0]
             # print(f"Loaded RR label shape: {label_rr.shape}, value: {label_rr}")
             # print(f"Loaded BVP label shape: {label_bvp.shape}, value: {label_bvp}")
-            return data, label_bvp, label_spo2, label_rr, filename, chunk_id
+            return data, label_bvp, label_spo2, label_rr, label_IR_confidence, label_RGB_confidence, filename, chunk_id
 
         if self.dataset_type == "face_IR":
             data = np.load(self.inputs_face_IR[index])
@@ -131,7 +139,7 @@ class BaseLoader(Dataset):
             split_idx = item_path_filename.rindex('_input_')
             filename = item_path_filename[:split_idx]
             chunk_id = item_path_filename[split_idx + len('_input_'):].split('.')[0]
-            return data, label_bvp, label_spo2, label_rr, filename, chunk_id
+            return data, label_bvp, label_spo2, label_rr, label_IR_confidence, label_RGB_confidence, filename, chunk_id
 
         if self.dataset_type == "both":
             data_face = np.load(self.inputs[index])
@@ -145,8 +153,17 @@ class BaseLoader(Dataset):
             split_idx = item_path_filename.rindex('_input_')
             filename = item_path_filename[:split_idx]
             chunk_id = item_path_filename[split_idx + len('_input_'):].split('.')[0]
-            # print("filename=",filename,"chunk_id=",chunk_id)
-            return data_face, data_face_IR, label_bvp, label_spo2, label_rr, filename, chunk_id
+            # if filename == 'mirror_zyw_04_Camera2_face':
+            #     print("========== Debug Info ==========")
+            #     print(f"index: {index}")
+            #     print(f"filename: {filename}")
+            #     print(f"chunk_id: {chunk_id}")
+            #     print(f"item_path: {item_path}")
+            #     print(f"IR path: {self.inputs_face_IR[index]}")
+            #     print(f"data_face shape: {data_face.shape}")
+            #     print(f"data_face_IR shape: {data_face_IR.shape}")
+            #     print("================================")
+            return data_face, data_face_IR, label_bvp, label_spo2, label_rr, label_IR_confidence, label_RGB_confidence, filename, chunk_id
 
     def get_raw_data(self, raw_data_path):
         """Returns raw data directories under the path.
