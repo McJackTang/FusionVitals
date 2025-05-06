@@ -176,7 +176,7 @@ def calculate_metric_per_video222(predictions, labels, fs=30, diff_flag=True, us
         SNR = 0
     return hr_label, hr_pred, SNR, macc
     
-def calculate_metric_per_video(predictions, labels, fs=30, diff_flag=True, use_bandpass=True, hr_method='FFT', datatype="rppg"):
+def calculate_metric_per_video(index, i, predictions, labels, fs=30, diff_flag=True, use_bandpass=True, hr_method='FFT', datatype="rppg"):
     """Calculate video-level HR and SNR"""
     # print(f"Processing datatype: {datatype} with HR method: {hr_method}")
 
@@ -194,18 +194,21 @@ def calculate_metric_per_video(predictions, labels, fs=30, diff_flag=True, use_b
             # print(f"predictions: {predictions}")
             labels = scipy.signal.filtfilt(b, a, np.double(labels))
             # print(f"labels: {labels}")
-
+     
     # HR computation
     hr_pred, hr_label = None, None
     if hr_method == 'FFT':
         hr_pred = _calculate_fft_hr(predictions, fs=fs) if datatype == "rppg" else predictions
         hr_label = _calculate_fft_hr(labels, fs=fs) if datatype == "rppg" else labels
+        print("hr_pred= ",hr_pred,'  hr_label= ',hr_label)
     elif hr_method == 'Peak' and datatype == "rppg":
         hr_pred = _calculate_peak_hr(predictions, fs=fs)
         hr_label = _calculate_peak_hr(labels, fs=fs)
     else:
         raise ValueError('Please use FFT or Peak to calculate HR for rPPG.')
-
+    
+    plot_bvp_waveforms(index, i, predictions, labels, hr_pred, hr_label)
+    
     # Calculate SNR only for rPPG data
     SNR = _calculate_SNR(predictions, hr_label, fs=fs) if datatype == "rppg" else None
 
@@ -214,8 +217,18 @@ def calculate_metric_per_video(predictions, labels, fs=30, diff_flag=True, use_b
 
     return hr_label, hr_pred, SNR, macc
 
+def calculate_metric_per_video_spo2(index, predictions, labels, fs=30, diff_flag=True, use_bandpass=True, hr_method='FFT', datatype="spo2"):
 
-def calculate_metric_per_video_rr(predictions, labels, fs=30, diff_flag=True, use_bandpass=True, hr_method='FFT', datatype="rr"):
+    # Calculate SNR only for rPPG data
+    SNR =  None
+
+    # Compute MAcc for all types of data
+    macc = _compute_macc(predictions, labels)
+
+    return predictions, labels, SNR, macc
+
+
+def calculate_metric_per_video_rr(index, predictions, labels, fs=30, diff_flag=True, use_bandpass=True, hr_method='FFT', datatype="rr"):
     """Calculate video-level HR and SNR"""
     print(f"Processing datatype: {datatype} with HR method: {hr_method}")
 
@@ -234,7 +247,7 @@ def calculate_metric_per_video_rr(predictions, labels, fs=30, diff_flag=True, us
             labels = scipy.signal.filtfilt(b, a, np.double(labels))
             # print(f"labels: {labels}")
             plot_all(predictions, labels)
-            plot_rr_waveforms(predictions, labels)
+            plot_rr_waveforms(index, predictions, labels)
 
     # HR computation
     rr_pred, rr_label = None, None
@@ -274,10 +287,10 @@ def plot_all(rr_pred, rr_lable):
     axes[1].set_ylabel('Data Value')
     axes[1].legend()
 
-    plt.savefig('./rr_all.png')
+    plt.savefig('/data01/jz/rppg_tool_HMS/result/rr_all.png')
     plt.show()
 
-def plot_rr_waveforms(rr_pred, rr_label):
+def plot_rr_waveforms(index, rr_pred, rr_label):
 
     # Plotting
     plt.figure(figsize=(20, 6))
@@ -288,5 +301,24 @@ def plot_rr_waveforms(rr_pred, rr_label):
     plt.xlabel("number")
     plt.ylabel("RR Rate")
     plt.legend()
-    plt.savefig('./tong_rr_lv.png')
+    filename = f'/data01/jz/rppg_tool_HMS/result/tong_rr_lv_{index}.png'
+    plt.savefig(filename)
+    plt.show()
+
+def plot_bvp_waveforms(index, i, bvp_pred, bvp_label, hr_pred, hr_label):
+    # Plotting
+    plt.figure(figsize=(20, 6))
+    plt.plot(bvp_pred, label="Predicted bvp", color='blue', linewidth=1.5)
+    plt.plot(bvp_label, label="True bvp", color='red', linewidth=1.5)
+    
+    # Set title with heart rate values (hr_pred, hr_label)
+    plt.title(f"BVP - HR Pred: {hr_pred:.2f} bpm, HR Label: {hr_label:.2f} bpm")
+    
+    plt.xlabel("Number")
+    plt.ylabel("BVP")
+    plt.legend()
+    
+    # Save the figure
+    filename = f'/data01/jz/rppg_tool_HMS/result/bvp_figure/bvp_{index}_{i}.png'
+    plt.savefig(filename)
     plt.show()
