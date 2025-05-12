@@ -18,7 +18,7 @@ torch.cuda.manual_seed(RANDOM_SEED)
 np.random.seed(RANDOM_SEED)
 random.seed(RANDOM_SEED)
 torch.backends.cudnn.deterministic = True
-torch.backends.cudnn.benchmark = True
+torch.backends.cudnn.benchmark = False  
 # Create a general generator for use with the validation dataloader,
 # the test dataloader, and the unsupervised dataloader
 general_generator = torch.Generator()
