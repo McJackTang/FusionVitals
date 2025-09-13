@@ -110,6 +110,42 @@ The toolbox supports SUMS dataset, Cite corresponding papers when using.
 
 # Comparative Experiment
 The table1 shows the Mean Absolute Error (MAE) and Mean Absolute Percent Error (MAPE) performance of the LADH dataset under unsupervised algorithms.
+<table> 
+    <tr>               
+      <th>Test Set</th>
+      <th colspan="7">LADH</th>
+    </tr>
+    <tr>      
+      <th>Method</th> 
+      <th>ICA</th>
+      <th>POS</th>
+      <th>CHROM</th>
+      <th>GREEN</th>
+      <th>LGI</th>
+      <th>PBV</th>
+      <th>OMIT</th>
+      </tr>
+     <tr>      
+      <td>MAE</td> 
+      <td>22.09</td>
+      <td>11.27</td>
+      <td>12.34</td>
+      <td>26.67</td>
+      <td>19.54</td>
+      <td>21.73</td>
+      <td>19.52</td>
+     </tr>
+     <tr>      
+      <td>MAPE</td> 
+      <td>23.99</td>
+      <td>12.17</td>
+      <td>13.34</td>
+      <td>29.21</td>
+      <td>21.21</td>
+      <td>23.71</td>
+      <td>21.19</td>
+     </tr>
+</table>
 
 ![unsupervised_result](./images/unsupervised_result.png)
 
