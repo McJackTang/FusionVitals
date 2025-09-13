@@ -126,7 +126,7 @@ The table1 shows the Mean Absolute Error (MAE) and Mean Absolute Percent Error (
       <th>OMIT</th>
       </tr>
      <tr>      
-      <th>MAE</th> 
+      <th>MAE↓</th> 
       <td>22.09</td>
       <td>11.27</td>
       <td>12.34</td>
@@ -136,7 +136,7 @@ The table1 shows the Mean Absolute Error (MAE) and Mean Absolute Percent Error (
       <td>19.52</td>
      </tr>
      <tr>      
-      <th>MAPE</th> 
+      <th>MAPE↓</th> 
       <td>23.99</td>
       <td>12.17</td>
       <td>13.34</td>
@@ -158,12 +158,12 @@ Table 2 shows the cross-dataset experimental results of the LADH, SUMS, and PURE
     </tr>
     <tr>               
       <th>Test Set</th>
-      <th>MAE</th>
-      <th>MAPE</th>
-      <th>MAE</th>
-      <th>MAPE</th>
-      <th>MAE</th>
-      <th>MAPE</th>
+      <th>MAE↓</th>
+      <th>MAPE↓</th>
+      <th>MAE↓</th>
+      <th>MAPE↓</th>
+      <th>MAE↓</th>
+      <th>MAPE↓</th>
     </tr>
     <tr>      
       <th rowspan="3">PhysNet</th> 
