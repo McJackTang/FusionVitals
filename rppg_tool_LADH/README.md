@@ -126,7 +126,7 @@ The table1 shows the Mean Absolute Error (MAE) and Mean Absolute Percent Error (
       <th>OMIT</th>
       </tr>
      <tr>      
-      <td>MAE</td> 
+      <th>MAE</th> 
       <td>22.09</td>
       <td>11.27</td>
       <td>12.34</td>
@@ -136,7 +136,7 @@ The table1 shows the Mean Absolute Error (MAE) and Mean Absolute Percent Error (
       <td>19.52</td>
      </tr>
      <tr>      
-      <td>MAPE</td> 
+      <th>MAPE</th> 
       <td>23.99</td>
       <td>12.17</td>
       <td>13.34</td>
@@ -147,8 +147,49 @@ The table1 shows the Mean Absolute Error (MAE) and Mean Absolute Percent Error (
      </tr>
 </table>
 
-![unsupervised_result](./images/unsupervised_result.png)
-
-
 Table 2 shows the cross-dataset experimental results of the LADH, SUMS, and PURE datasets on the PhysNet model.
-![physnet_result](./images/physnet_result.png)
+<table> 
+    <tr>               
+      <th colspan="2">Train Set</th>
+      <th colspan="2">LADH</th>
+      <th colspan="2">SUMS</th>
+      <th colspan="2">PURE</th>
+    </tr>
+    <tr>               
+      <th colspan="2">Test Set</th>
+      <th>MAE</th>
+      <th>MAPE</th>
+      <th>MAE</th>
+      <th>MAPE</th>
+      <th>MAE</th>
+      <th>MAPE</th>
+    </tr>
+    <tr>      
+      <th rowspan="3">PhysNet</th> 
+      <th>LADH</th>
+      <td>8.15</td>
+      <td>9.19</td>
+      <td>16.93</td>
+      <td>18.2</td>
+      <td>17</td>
+      <td>18.78</td>
+     </tr>
+     <tr>      
+      <th>SUMS</th>
+      <td>11.23</td>
+      <td>15.45</td>
+      <td>3.36</td>
+      <td>3.84</td>
+      <td>14.95</td>
+      <td>17.11</td>
+     </tr>
+     <tr>      
+      <th>PURE</th>
+      <td>8.1</td>
+      <td>8.83</td>
+      <td>7.97</td>
+      <td>8.87</td>
+      <td>0.59</td>
+      <td>0.77</td>
+     </tr>
+</table>
