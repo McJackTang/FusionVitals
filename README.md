@@ -171,14 +171,12 @@ Table 2 shows the cross-dataset experimental results of the LADH, SUMS, and PURE
 <table> 
     <tr>  
       <th rowspan="2"></th> 
-      <th></th>
       <th>Train Set</th>
       <th colspan="2">LADH</th>
       <th colspan="2">SUMS</th>
       <th colspan="2">PURE</th>
     </tr>
     <tr> 
-      <th></th>
       <th>Test Set</th>
       <th>MAE</th>
       <th>MAPE</th>
