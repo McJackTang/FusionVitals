@@ -149,14 +149,15 @@ The table1 shows the Mean Absolute Error (MAE) and Mean Absolute Percent Error (
 
 Table 2 shows the cross-dataset experimental results of the LADH, SUMS, and PURE datasets on the PhysNet model.
 <table> 
-    <tr>               
-      <th colspan="2">Train Set</th>
+    <tr>
+      <th rowspan="2"></th> 
+      <th>Train Set</th>
       <th colspan="2">LADH</th>
       <th colspan="2">SUMS</th>
       <th colspan="2">PURE</th>
     </tr>
     <tr>               
-      <th colspan="2">Test Set</th>
+      <th>Test Set</th>
       <th>MAE</th>
       <th>MAPE</th>
       <th>MAE</th>
