@@ -18,7 +18,7 @@ This study divided data collection into two groups: the first dataset was collec
 
 (A visual illustration of our daily data collection protocol.)
 
-## ⚙️ Setup
+## :wrench: Setup
 
 STEP1: `bash setup.sh` 
 
@@ -26,11 +26,11 @@ STEP2: `conda activate rppg-toolbox`
 
 STEP3: `pip install -r requirements.txt` 
 
-# Example of neural network training
+## ⚙️ Example of neural network training
 
 Please use config files under `./configs/train_configs/LADH_PHYSNET_*`
 
-## Train on LADH, valid on LADH and test on LADH with FusionPhysNet 
+## :notebook: Train on LADH, valid on LADH and test on LADH with FusionPhysNet 
 
 STEP1: Download the LADH raw data by asking the [paper authors]().
 
