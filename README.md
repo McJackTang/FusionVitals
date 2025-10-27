@@ -8,7 +8,7 @@ DATASET COMPARISON
 | Dataset | Videos | Camera-Position | Vitals | Long-term | Obscured |
 |---------|----------|-----------------|--------|-----------|----------|
 | PURE | 40 | Face | PPG/SpO₂ | ✗ | ✗ |
-| UBFC+PPG | 42 | Face | PPG | ✗ | ✗ |
+| UBFC-PPG | 42 | Face | PPG | ✗ | ✗ |
 | MMPD | 660 | Face | PPG | ✗ | ✗ |
 | SUMS | 80 | Face+Finger | PPG/SpO₂/RR | ✗ | ✗ |
 | LADH | 240 | Face(RGB+IR) | PPG/SpO₂/RR | ✓ | ✓ |
