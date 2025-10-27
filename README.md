@@ -162,14 +162,44 @@ TABLE 1 ：RESULTS OF HR-SpO₂-RR MULTI-TASK TRAINING BY SUBJECT
       <th>MAE↓</th>
       <th>MAPE↓</th>
       </tr>
+     <tr>      
+      <th>Both(Single Task)</th>
+      <td>9.02</td>
+      <td>10.99</td>
+      <td>1.10</td>
+      <td>1.19</td>
+      <td>2.25</td>
+      <td>10.16</td>
+     </tr>
+     <tr>      
+      <th>RGB(Multi Task)</th>
+      <td>9.34</td>
+      <td>12.08</td>
+      <td>1.29</td>
+      <td>1.39</td>
+      <td>3.08</td>
+      <td>13.78</td>
+     </tr>
+     <tr>      
+      <th>IR(Multi Task)</th>
+      <td>12.99</td>
+      <td>15.73</td>
+      <td>1.23</td>
+      <td>1.33</td>
+      <td>2.41</td>
+      <td>11.20</td>
+     </tr>
+     <tr>      
+      <th>**Both(Multi Task)**</th>
+      <td>7.12</td>
+      <td>8.93</td>
+      <td>1.14</td>
+      <td>1.23</td>
+      <td>1.43</td>
+      <td>6.53</td>
+     </tr>
+ 
 </table>
-| Modality | HR TASK | SpO2 TASK | RR TASK |
-| Training Set | MAE↓ | MAPE↓ | MAE↓ | MAPE↓ | MAE↓ | MAPE↓ |
-|-------------|--------|---------|----------|-----------|--------|---------|
-| Both(Single Task) | 9.02 | 10.99 | 1.10 | 1.19 | 2.25 | 10.16 |
-| RGB(Multi Task) | 9.34 | 12.08 | 1.29 | 1.39 | 3.08 | 13.78 |
-| IR(Multi Task) | 12.99 | 15.73 | 1.23 | 1.33 | 2.41 | 11.20 |
-| **Both(Multi Task)** | **7.12** | **8.93** | **1.14** | **1.23** | **1.43** | **6.53** |
 - MAE = Mean Absolute Error
 - MAPE = Mean Percentage Error (%)
 - **Bold** = Best performance
