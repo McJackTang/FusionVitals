@@ -247,7 +247,7 @@ TABLE 1 ：RESULTS OF HR-SpO₂-RR MULTI-TASK TRAINING BY SUBJECT
       <td>6.74</td>
      </tr>
      <tr>      
-      <th>**Both(Multi Task)**</th>
+      <th>Both(Multi Task)</th>
       <td>4.99</td>
       <td>5.21</td>
       <td>1.29</td>
