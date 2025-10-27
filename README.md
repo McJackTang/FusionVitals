@@ -145,7 +145,6 @@ The toolbox supports SUMS dataset, Cite corresponding papers when using.
  In the subject-wise partitioning experiment, multimodal fusion with joint training outperforms single-modality and single-task approaches, particularly for HR and RR estimation. The dataset was partitioned such that data from 8 subjects were used for training, 3 subjects for validation, and an additional dataset from 10 individuals was reserved for testing. The results indicated significant improvements in the MAE for HR, which decreased from 9.02 to 7.12, reflecting a 21.06% error reduction, and for RR, which decreased from 2.25 to 1.43, reflecting a 36.44% error reduction. This suggests that multimodal fusion and joint training are more effective for periodic tasks likeHRandRR,whileSpO2doesnot exhibit clear periodic fluctuations and is inferred through indirect signals.
 
 TABLE 1 ：RESULTS OF HR-SpO₂-RR MULTI-TASK TRAINING BY SUBJECT
-
 <table> 
     <tr>               
       <th>Modality</th>
@@ -190,7 +189,7 @@ TABLE 1 ：RESULTS OF HR-SpO₂-RR MULTI-TASK TRAINING BY SUBJECT
       <td>11.20</td>
      </tr>
      <tr>      
-      <th>**Both(Multi Task)**</th>
+      <th>Both(Multi Task)</th>
       <td>7.12</td>
       <td>8.93</td>
       <td>1.14</td>
@@ -198,21 +197,66 @@ TABLE 1 ：RESULTS OF HR-SpO₂-RR MULTI-TASK TRAINING BY SUBJECT
       <td>1.43</td>
       <td>6.53</td>
      </tr>
- 
 </table>
-- MAE = Mean Absolute Error
-- MAPE = Mean Percentage Error (%)
-- **Bold** = Best performance
 
 In the day-wise partitioning experiment, multimodal fusionwith joint training improvesHRestimation, and multitask learningbenefits SpO2 andRRestimation. In thisexperiment,datacollectedover10daysweresplit into 7 days for training, 2 days forvalidation, and 1 dayfor testing. The results showed that for HR estimation, multimodal fusion with joint training outperformed single-modality and single-task approaches, reducing MAE from 5.23 to 4.99 (a 4.59% error reduction). In IR-based joint training, errors for SpO2 and RR were reduced by 2.29% and 41.25%, respectively. This highlights the effectiveness of multimodal fusion for HR and multitask learning for SpO2 and RR. 
 
 TABLE 2 ：RESULTS OF HR-SpO₂-RR MULTI-TASK TRAINING BY DAY
-| Training Set | HR MAE | HR MAPE | SpO2 MAE | SpO2 MAPE | RR MAE | RR MAPE |
-|-------------|--------|---------|----------|-----------|--------|---------|
-| Both(Single) | 5.23 | 5.44 | 1.31 | 1.38 | 2.57 | 13.45 |
-| RGB(Multi) | 5.73 | 5.77 | 1.35 | 1.43 | 1.99 | 9.12 |
-| IR(Multi) | 8.35 | 8.98 | 1.28 | 1.36 | 1.51 | 6.74 |
-| **Both(Multi)** | **4.99** | **5.21** | **1.29** | **1.37** | **2.24** | **11.38** |
+TABLE 1 ：RESULTS OF HR-SpO₂-RR MULTI-TASK TRAINING BY SUBJECT
+<table> 
+    <tr>               
+      <th>Modality</th>
+      <th colspan="2">HR TASK</th>
+      <th colspan="2">SpO2 TASK</th>
+      <th colspan="2">RR TASK</th>
+    </tr>
+    <tr>      
+      <th> </th>
+      <th>MAE↓</th>
+      <th>MAPE↓</th>
+      <th>MAE↓</th>
+      <th>MAPE↓</th>
+      <th>MAE↓</th>
+      <th>MAPE↓</th>
+      </tr>
+     <tr>      
+      <th>Both(Single Task)</th>
+      <td>5.23</td>
+      <td>5.44</td>
+      <td>1.31</td>
+      <td>1.38</td>
+      <td>2.57</td>
+      <td>13.45</td>
+     </tr>
+     <tr>      
+      <th>RGB(Multi Task)</th>
+      <td>5.73</td>
+      <td>5.77</td>
+      <td>1.35</td>
+      <td>1.43</td>
+      <td>1.99</td>
+      <td>9.12</td>
+     </tr>
+     <tr>      
+      <th>IR(Multi Task)</th>
+      <td>8.35</td>
+      <td>8.98</td>
+      <td>1.28</td>
+      <td>1.36</td>
+      <td>1.51</td>
+      <td>6.74</td>
+     </tr>
+     <tr>      
+      <th>**Both(Multi Task)**</th>
+      <td>4.99</td>
+      <td>5.21</td>
+      <td>1.29</td>
+      <td>1.37</td>
+      <td>2.24</td>
+      <td>11.38</td>
+     </tr>
+ 
+</table>
 
 Comparison of the subject-wise and day-wise experiments illustrates how day-wise analysis can improve the adaptability of models to individual user data. While the subject-wise experiment shows strong performance for periodic tasks through multimodal fusion and joint training, the day-wise experiment emphasizes the ability of the model to adapt more closely to individual data. This could indicate that, in future personalized health monitoring systems, such as a health mirror, models can better accommodate daily variations and offer more tailored results to users, enhancing the accuracyof HR, RR, and SpO2 estimation on an individual level.
 ## :eyes: Comparative Experiment
