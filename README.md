@@ -17,6 +17,10 @@ This study divided data collection into two groups: the first dataset was collec
 ![Experiment process](./rppg_tool_LADH/images/stations.png)
 
 (A visual illustration of our daily data collection protocol.)
+## :notebook: Neural Network Model
+ We introduce a novel design in the FusionNet module by incorporating a modality-aware fusion mechanism. Specifically, a gated feature selection strategy is employed to adaptively modulate the contribution of each modality based on its global contextual representation, thereby effectively integrating information from both facial RGB and facial IR video streams. This design enables the model to dynamically emphasize the more informative modality under varying environmental conditions (e.g., changes in illumination), significantly enhancing the robustness and generalizability of the physiological signal estimation framework.
+ ![Model](./rppg_tool_LADH/images/Model.png)
+ ( FusionPhys Model with Input frames of facial RGB and facial IR. PPG, RR and SpO2 estimation tasks are trained simultaneously with a combined loss.)
 
 ## :wrench: Setup
 
