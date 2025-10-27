@@ -3,7 +3,7 @@ Non-Contact Health Monitoring During Daily Personal Care Routines
 
 ## 📖 Abstract
 Here is LADH dataset collected by Qinghai University. The dataset collected 240 synchronized non-contact facial videos (including both RGB and IR modalities)across five scenarios(including sitting, sitting while brushing teeth and combing hair, standing, standing while brushing teeth and combing hair, and post-exercise), with 11 participants taking part continuously over 10 days. This dataset captures PPG, respiration rate (RR), and SpO2, and is designed to validate the accuracy and superiority of rPPG in daily personal care scenarios.
-# TABLE 1
+# TABLE
 DATASET COMPARISON
 | Dataset | Videos | Camera-Position | Vitals | Long-term | Obscured |
 |---------|----------|-----------------|--------|-----------|----------|
