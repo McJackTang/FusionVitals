@@ -5,13 +5,13 @@ Non-Contact Health Monitoring During Daily Personal Care Routines
 Here is LADH dataset collected by Qinghai University. The dataset collected 240 synchronized non-contact facial videos (including both RGB and IR modalities)across five scenarios(including sitting, sitting while brushing teeth and combing hair, standing, standing while brushing teeth and combing hair, and post-exercise), with 11 participants taking part continuously over 10 days. This dataset captures PPG, respiration rate (RR), and SpO2, and is designed to validate the accuracy and superiority of rPPG in daily personal care scenarios.
 # TABLE 1
 DATASET COMPARISON
-| Dataset | Videos | Subjects | Camera-Position | Vitals | Long-term | Obscured |
-|---------|--------|----------|-----------------|--------|-----------|----------|
-| PURE | 5 | 40 | Face | PPG/SpO₂ | ✗ | ✗ |
-| UBFC+PPG | 6 | 42 | Face | PPG | ✗ | ✗ |
-| MMPD | 8 | 660 | Face | PPG | ✗ | ✗ |
-| SUMS | 7 | 80 | Face+Finger | PPG/SpO₂/RR | ✗ | ✗ |
-| LADH | 240 | - | Face(RGB+IR) | PPG/SpO₂/RR | ✓ | ✓ |
+| Dataset | Videos | Camera-Position | Vitals | Long-term | Obscured |
+|---------|----------|-----------------|--------|-----------|----------|
+| PURE | 40 | Face | PPG/SpO₂ | ✗ | ✗ |
+| UBFC+PPG | 42 | Face | PPG | ✗ | ✗ |
+| MMPD | 660 | Face | PPG | ✗ | ✗ |
+| SUMS | 80 | Face+Finger | PPG/SpO₂/RR | ✗ | ✗ |
+| LADH | 240 | Face(RGB+IR) | PPG/SpO₂/RR | ✓ | ✓ |
 
 ## 🔍 Experiment Setup
 We recruited 21 participants to collect data under daily five scenarios. Data collection utilized a camera module to capture facial videos of participants’ both RGB and IR modalities, aphysiological ground-truth signals were recorded using a CMS50E pulse oximeter for PPG and SpO2, and an HKH-11C respiratory sensor to monitor breathing patterns. Video recordings were acquired at a resolution of 640×480 pixels and a frame rate of 30 frames per second (FPS). The PPG signals were recorded at a frequency of 20 Hz, while respiratory waves were captured at 50 Hz. The experiment setup is shown as follows.
