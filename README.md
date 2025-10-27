@@ -202,7 +202,6 @@ TABLE 1 ：RESULTS OF HR-SpO₂-RR MULTI-TASK TRAINING BY SUBJECT
 In the day-wise partitioning experiment, multimodal fusionwith joint training improvesHRestimation, and multitask learningbenefits SpO2 andRRestimation. In thisexperiment,datacollectedover10daysweresplit into 7 days for training, 2 days forvalidation, and 1 dayfor testing. The results showed that for HR estimation, multimodal fusion with joint training outperformed single-modality and single-task approaches, reducing MAE from 5.23 to 4.99 (a 4.59% error reduction). In IR-based joint training, errors for SpO2 and RR were reduced by 2.29% and 41.25%, respectively. This highlights the effectiveness of multimodal fusion for HR and multitask learning for SpO2 and RR. 
 
 TABLE 2 ：RESULTS OF HR-SpO₂-RR MULTI-TASK TRAINING BY DAY
-TABLE 1 ：RESULTS OF HR-SpO₂-RR MULTI-TASK TRAINING BY SUBJECT
 <table> 
     <tr>               
       <th>Modality</th>
