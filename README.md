@@ -151,11 +151,19 @@ TABLE 1 ：RESULTS OF HR-SpO₂-RR MULTI-TASK TRAINING BY SUBJECT
 | RGB(Multi Task) | 9.34 | 12.08 | 1.29 | 1.39 | 3.08 | 13.78 |
 | IR(Multi Task) | 12.99 | 15.73 | 1.23 | 1.33 | 2.41 | 11.20 |
 | **Both(Multi Task)** | **7.12** | **8.93** | **1.14** | **1.23** | **1.43** | **6.53** |
-**Legend:**
 - MAE = Mean Absolute Error
 - MAPE = Mean Percentage Error (%)
 - **Bold** = Best performance
+
 In the day-wise partitioning experiment, multimodal fusionwith joint training improvesHRestimation, and multitask learningbenefits SpO2 andRRestimation. In thisexperiment,datacollectedover10daysweresplit into 7 days for training, 2 days forvalidation, and 1 dayfor testing. The results showed that for HR estimation, multimodal fusion with joint training outperformed single-modality and single-task approaches, reducing MAE from 5.23 to 4.99 (a 4.59% error reduction). In IR-based joint training, errors for SpO2 and RR were reduced by 2.29% and 41.25%, respectively. This highlights the effectiveness of multimodal fusion for HR and multitask learning for SpO2 and RR. 
+
+TABLE 2 ：RESULTS OF HR-SpO₂-RR MULTI-TASK TRAINING BY DAY
+| Training Set | HR MAE | HR MAPE | SpO2 MAE | SpO2 MAPE | RR MAE | RR MAPE |
+|-------------|--------|---------|----------|-----------|--------|---------|
+| Both(Single) | 5.23 | 5.44 | 1.31 | 1.38 | 2.57 | 13.45 |
+| RGB(Multi) | 5.73 | 5.77 | 1.35 | 1.43 | 1.99 | 9.12 |
+| IR(Multi) | 8.35 | 8.98 | 1.28 | 1.36 | 1.51 | 6.74 |
+| **Both(Multi)** | **4.99** | **5.21** | **1.29** | **1.37** | **2.24** | **11.38** |
 
 Comparison of the subject-wise and day-wise experiments illustrates how day-wise analysis can improve the adaptability of models to individual user data. While the subject-wise experiment shows strong performance for periodic tasks through multimodal fusion and joint training, the day-wise experiment emphasizes the ability of the model to adapt more closely to individual data. This could indicate that, in future personalized health monitoring systems, such as a health mirror, models can better accommodate daily variations and offer more tailored results to users, enhancing the accuracyof HR, RR, and SpO2 estimation on an individual level.
 ## :eyes: Comparative Experiment
