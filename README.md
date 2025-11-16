@@ -14,7 +14,7 @@ TABLE(DATASET COMPARISON)
 | LADH | 240 | Face(RGB+IR) | PPG/SpO₂/RR | ✓ | ✓ |
 
 ## 🔍 Experiment Setup
-We recruited 21 participants to collect data under daily five scenarios. Data collection utilized a camera module to capture facial videos of participants’ both RGB and IR modalities, aphysiological ground-truth signals were recorded using a CMS50E pulse oximeter for PPG and SpO2, and an HKH-11C respiratory sensor to monitor breathing patterns. Video recordings were acquired at a resolution of 640×480 pixels and a frame rate of 30 frames per second (FPS). The PPG signals were recorded at a frequency of 20 Hz, while respiratory waves were captured at 50 Hz. The experiment setup is shown as follows.
+We recruited 21 participants to collect data under daily five scenarios. Data collection utilized a camera module to capture facial videos of participants’ both RGB and IR modalities, physiological ground-truth signals were recorded using a CMS50E pulse oximeter for PPG and SpO2, and an HKH-11C respiratory sensor to monitor breathing patterns. Video recordings were acquired at a resolution of 640×480 pixels and a frame rate of 30 frames per second (FPS). The PPG signals were recorded at a frequency of 20 Hz, while respiratory waves were captured at 50 Hz. The experiment setup is shown as follows.
 
 ![device](./rppg_tool_LADH/images/collection.png)
 
@@ -98,7 +98,7 @@ Here are some explanation of parameters:
 * #### METRICS: Set used metrics. Example: ['MAE','RMSE','MAPE','Pearson']
 
 ## :open_file_folder: Dataset
-The toolbox supports SUMS dataset, Cite corresponding papers when using.
+The toolbox supports the LADH dataset. Cite corresponding papers when using.
 
 * [LADH](https://github.com/McJackTang/FusionVitals)
     * In order to use this dataset in a deep model, you should organize the files as follows:
@@ -345,3 +345,49 @@ Table 2 shows the cross-dataset experimental results of the LADH, SUMS, and PURE
      </tr>
 </table>
 
+## 🗝️ Access and Usage
+
+The dataset included 240 videos from 21 subjects. Dataset size is 133.22 GB.  
+There are two ways for downloads： OneDrive and Baidu Netdisk. 
+
+To access the dataset, you are supposed to download this [data release agreement](https://github.com/McJackTang/FusionVitals/blob/main/LADH_Release_Agreement.pdf).  
+Please scan and dispatch the completed agreement via your institutional email to <tjk24@mails.tsinghua.edu.cn> and cc <yuntaowang@tsinghua.edu.cn>. The email should have the subject line 'LADH Access Request -  your institution.' In the email,  outline your institution's **website** and **publications** for seeking access to the LADH, including its intended application in your specific research project. The email should be sent by a **faculty** rather than a student.   
+
+## 📄 Citation
+Title: [Non-Contact Health Monitoring During Daily Personal Care Routines](https://www.arxiv.org/abs/2506.09718)  
+Xulin Ma, Jiankai Tang, Zhang Jiang, Songqin Cheng, Yuanchun Shi, Dong LI, Xin Liu, Daniel McDuff, Xiaojing Liu, Yuntao Wang, "Non-Contact Health Monitoring During Daily Personal Care Routines", IEEE BSN, 2025  
+```
+@inproceedings{ma2025non,
+  title={Non-Contact Health Monitoring During Daily Personal Care Routines},
+  author={Ma*, Xulin and Tang*, Jiankai and Jiang, Zhang and Cheng, Songqin and Shi, Yuanchun and Li, Dong and Liu, Xin and McDuff, Daniel and Liu, Xiaojing and Wang, Yuntao},
+  booktitle={IEEE BSN 2025},
+  year={2025}
+}
+
+@inproceedings{tang2023mmpd,
+  title={MMPD: Multi-Domain Mobile Video Physiology Dataset},
+  author={Tang, Jiankai and Chen, Kequan and Wang, Yuntao and Shi, Yuanchun and Patel, Shwetak and McDuff, Daniel and Liu, Xin},
+  booktitle={2023 45th Annual International Conference of the IEEE Engineering in Medicine \& Biology Society (EMBC)},
+  pages={1--5},
+  year={2023},
+  organization={IEEE}
+}
+
+@inproceedings{liu2024rppg,
+  title={rPPG-Toolbox: Deep Remote PPG Toolbox},
+  author={Liu, Xin and Narayanswamy, Girish and Paruchuri, Akshay and Zhang, Xiaoyu and Tang, Jiankai and Zhang, Yuzhe and Sengupta, Roni and Patel, Shwetak and Wang, Yuntao and McDuff, Daniel},
+  booktitle={Advances in Neural Information Processing Systems},
+  volume={36},
+  year={2024}
+}
+
+@inproceedings{liu2024summit,
+  title={Summit Vitals: Multi-Camera and Multi-Signal Biosensing at High Altitudes},
+  author={Liu*, Ke and Tang*, Jiankai and Jiang, Zhang and Wang, Yuntao and Liu, Xiaojing and Li, Dong and Shi, Yuanchun},
+  booktitle={2024 IEEE Smart World Congress (SWC)},
+  pages={284--291},
+  year={2024}
+}
+
+
+```
