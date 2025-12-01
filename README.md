@@ -30,7 +30,7 @@ This study divided data collection into two groups: the first dataset was collec
 ## 🔍 Samples
 |                           |state-1|state-2|state-3|state-4|state-5|
 |:-------------------------:|:-----:|:------:|:----------:|:----:|:----:|
-|face-rgb|![](./rppg_tool_LADH/images/v01.gif)|![](./rppg_tool_LADH/images/v02_B.gif)|![](./rppg_tool_LADH/images/v03.gif)|![](./rppg_tool_LADH/images/v04_B.gif)|![](./rppg_tool_LADH/images/v05.gif)|
+|face-rgb|![](./rppg_tool_LADH/images/v01.gif)|![](./rppg_tool_LADH/images/v02_B.gif)![](./rppg_tool_LADH/images/v02_C.gif)|![](./rppg_tool_LADH/images/v03.gif)|![](./rppg_tool_LADH/images/v04_B.gif)![](./rppg_tool_LADH/images/v04_C.gif)|![](./rppg_tool_LADH/images/v05.gif)|
 
 ## :notebook: Neural Network Model
  We introduce a novel design in the FusionNet module by incorporating a modality-aware fusion mechanism. Specifically, a gated feature selection strategy is employed to adaptively modulate the contribution of each modality based on its global contextual representation, thereby effectively integrating information from both facial RGB and facial IR video streams. This design enables the model to dynamically emphasize the more informative modality under varying environmental conditions (e.g., changes in illumination), significantly enhancing the robustness and generalizability of the physiological signal estimation framework.
