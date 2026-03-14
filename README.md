@@ -54,7 +54,7 @@ Please use config files under `./configs/train_configs/LADH_PHYSNET_*`
 
 ## :notebook: Train on LADH, valid on LADH and test on LADH with FusionPhysNet 
 
-STEP1: Download the LADH raw data by asking the [paper authors]().
+STEP1: Download the LADH raw data (see [data release agreement](https://github.com/McJackTang/FusionVitals/blob/main/LADH_Release_Agreement.pdf)).
 
 STEP2: Modify `./configs/train_configs/LADH_PHYSNET_face_RGB_IR_both.yaml` 
 
